@@ -1,0 +1,3 @@
+import { AdminShell } from "@/components/app-shell";
+import { EmptyState } from "@/components/ui";
+export default function AdminPage() { return <AdminShell><span className="eyebrow">Operations foundation</span><h1 className="serif">Admin overview</h1><p className="muted">A reserved layout for future administration tools. No operational data is connected.</p><div className="stats-grid"><div className="stat"><span className="eyebrow">Members</span><strong>—</strong></div><div className="stat"><span className="eyebrow">Hosts</span><strong>—</strong></div></div><section style={{ marginTop: "1rem" }}><EmptyState title="Admin tools are not connected" message="Authentication, permissions, and operational workflows will be added in a later phase." /></section></AdminShell>; }

@@ -1,0 +1,3 @@
+import { AppShell } from "@/components/app-shell";
+import { EmptyState } from "@/components/ui";
+export default function WalletPage() { return <AppShell mode="user" current="wallet"><span className="eyebrow">Your account</span><h1 className="serif">Wallet</h1><EmptyState title="Wallet is ready for its future" message="Your balance and activity will appear here when this space is connected to a real account." /></AppShell>; }

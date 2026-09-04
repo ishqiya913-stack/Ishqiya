@@ -1,0 +1,4 @@
+import Link from "next/link";
+import { Brand } from "@/components/navigation";
+import { Button, Input } from "@/components/ui";
+export default function HostForgotPassword() { return <main className="auth-page"><section className="form-card" style={{ maxWidth: "32rem", width: "100%", margin: "auto" }}><Brand /><span className="eyebrow">host access</span><h2>Reset your password</h2><p className="muted">Enter your email and we will make space for the next step.</p><form><Input id="email" label="Email" type="email" autoComplete="email" /><Button type="button">Request reset</Button><Link className="form-footer" href="/auth/host/sign-in">Back to sign in</Link></form></section></main>; }

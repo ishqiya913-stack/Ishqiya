@@ -1,0 +1,3 @@
+import { AppShell } from "@/components/app-shell";
+import { EmptyState } from "@/components/ui";
+export default function HostProfilePage() { return <AppShell mode="host" current="profile"><span className="eyebrow">Host space</span><h1 className="serif">Profile</h1><EmptyState title="Your host profile starts here" message="Your introduction and availability will appear here when configured." /></AppShell>; }
