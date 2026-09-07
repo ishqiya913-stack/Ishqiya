@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { FastLoginButton } from "@/components/fast-login-button";
 
 export default function Home() {
   return (
@@ -14,9 +15,9 @@ export default function Home() {
             </span>
           </Link>
 
-          <Link href="/auth/user/sign-in" className="landing-sign-in">
-            Sign In
-          </Link>
+          <Link href="/auth/host/sign-up" className="landing-sign-in">
+              Join as Host
+            </Link>
         </header>
 
         <section className="landing-hero">
@@ -34,15 +35,8 @@ export default function Home() {
             </div>
 
             <div className="landing-actions">
-              <Link href="/auth/user/sign-up" className="landing-button landing-button-primary">
-                Join as a User
-                <span aria-hidden="true">↗</span>
-              </Link>
-              <Link href="/auth/host/sign-up" className="landing-button landing-button-secondary">
-                Join as a Host
-                <span aria-hidden="true">↗</span>
-              </Link>
-            </div>
+          <FastLoginButton />
+        </div>
           </div>
 
           <div className="landing-hero-art">

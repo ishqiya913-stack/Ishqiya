@@ -1,3 +1,6 @@
 import { AppShell } from "@/components/app-shell";
-import { Button } from "@/components/ui";
-export default function DiscoverPage() { return <AppShell mode="user" current="discover"><span className="eyebrow">Your discovery</span><h1 className="serif">Meet with intention.</h1><p className="muted">A calm place to begin when the time feels right.</p><div className="discover-grid"><article className="discover-card"><div className="photo-placeholder" role="img" aria-label="Profile photo placeholder">Profile photo</div><div className="discover-info"><h2>Name, age</h2><p>City<br />Bio will appear here.</p><div className="discover-actions"><Button variant="danger">Pass</Button><Button>Like</Button></div></div></article></div></AppShell>; }
+import { DiscoverBrowser } from "@/components/discover-browser";
+
+export default function DiscoverPage() {
+	return <AppShell mode="user" current="discover"><span className="eyebrow">Your discovery</span><h1 className="serif">Meet with intention.</h1><p className="muted">Only approved Hosts who are ready to be discovered appear here.</p><DiscoverBrowser /></AppShell>;
+}

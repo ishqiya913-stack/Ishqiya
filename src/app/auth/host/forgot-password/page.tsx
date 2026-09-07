@@ -1,4 +1,2 @@
-import Link from "next/link";
-import { BackControl } from "@/components/navigation";
-import { Button, Input } from "@/components/ui";
-export default function HostForgotPassword() { return <main className="auth-page"><div className="auth-flow-nav"><BackControl /></div><section className="form-card" style={{ maxWidth: "32rem", width: "100%", margin: "auto" }}><span className="eyebrow">host access</span><h2>Reset your password</h2><p className="muted">Enter your email and we will make space for the next step.</p><form><Input id="email" label="Email" type="email" autoComplete="email" /><Button type="button">Request reset</Button><Link className="form-footer" href="/auth/host/sign-in">Back to sign in</Link></form></section></main>; }
+import { AuthResetForm } from "@/components/auth-reset-form";
+export default function HostForgotPassword() { return <AuthResetForm mode="host" />; }

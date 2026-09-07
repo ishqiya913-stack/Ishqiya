@@ -1,0 +1,13 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { Room, RoomEvent, Track } from "livekit-client";
+import { Button } from "@/components/ui";
+
+export function VideoCall({ matchId }: { matchId: string }) {
+  const [room, setRoom] = useState<Room | null>(null); const [sessionId, setSessionId] = useState(""); const [message, setMessage] = useState(""); const localVideo = useRef<HTMLVideoElement>(null); const remoteVideo = useRef<HTMLVideoElement>(null);
+  async function start() { setMessage(""); const response = await fetch("/api/video/token", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ matchId }) }); const result = await response.json() as { token?: string; url?: string; sessionId?: string; error?: string }; if (!response.ok || !result.token || !result.url || !result.sessionId) { setMessage(result.error || "Video could not be started."); return; } const nextRoom = new Room(); nextRoom.on(RoomEvent.TrackSubscribed, (track) => { if (track.kind === Track.Kind.Video && remoteVideo.current) track.attach(remoteVideo.current); }); try { await nextRoom.connect(result.url, result.token); await nextRoom.localParticipant.setCameraEnabled(true); await nextRoom.localParticipant.setMicrophoneEnabled(true); } catch { setMessage("Camera and microphone access are required to start video."); await nextRoom.disconnect(); return; } const camera = nextRoom.localParticipant.getTrackPublication(Track.Source.Camera)?.track; if (camera && localVideo.current) camera.attach(localVideo.current); setSessionId(result.sessionId); setRoom(nextRoom); }
+  async function stop() { if (sessionId) await fetch("/api/video/end", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sessionId }) }); await room?.disconnect(); setRoom(null); setSessionId(""); }
+  useEffect(() => () => { if (sessionId) void fetch("/api/video/end", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sessionId }) }); void room?.disconnect(); }, [room, sessionId]);
+  return <section className="choice-card"><span className="eyebrow">Camera video</span><p className="muted">Video sessions are billed from server time at the account rate. Voice-only calls are not available.</p>{room ? <><div className="discover-grid"><video ref={localVideo} autoPlay muted playsInline /><video ref={remoteVideo} autoPlay playsInline /></div><Button type="button" variant="danger" onClick={() => void stop()}>End video</Button></> : <Button type="button" onClick={() => void start()}>Start camera video</Button>}{message && <p className="muted" role="alert">{message}</p>}</section>;
+}

@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/internal/livekit/billing-cron",
+      "schedule": "* * * * *"
+    }
+  ]
+}

@@ -24,8 +24,6 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 To learn more about Next.js, take a look at the following resources:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
@@ -34,3 +32,20 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Server configuration
+
+LiveKit webhook reconciliation requires these server-only variables in addition to the existing LiveKit settings:
+
+```env
+LIVEKIT_API_KEY=...
+LIVEKIT_API_SECRET=...
+NEXT_PUBLIC_LIVEKIT_URL=...
+LIVEKIT_RECONCILIATION_SECRET=...
+CRON_SECRET=...
+ISHQIYA_UPI_ID=velvetbombay01@okhdfcbank
+```
+
+Configure the LiveKit webhook URL as `/api/webhooks/livekit`. The reconciliation endpoint `/api/internal/livekit/reconcile` is intended for a trusted scheduler and requires `Authorization: Bearer <LIVEKIT_RECONCILIATION_SECRET>`.
+
+Vercel invokes `/api/internal/livekit/billing-cron` once per minute using the `vercel.json` cron configuration. Vercel Hobby does not support once-per-minute cron schedules; use a plan that supports per-minute cron execution. Vercel supplies the `Authorization: Bearer <CRON_SECRET>` header when `CRON_SECRET` is configured server-side.

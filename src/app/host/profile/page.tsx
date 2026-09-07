@@ -1,3 +1,4 @@
 import { AppShell } from "@/components/app-shell";
-import { EmptyState } from "@/components/ui";
-export default function HostProfilePage() { return <AppShell mode="host" current="profile"><span className="eyebrow">Host space</span><h1 className="serif">Profile</h1><EmptyState title="Your host profile starts here" message="Your introduction and availability will appear here when configured." /></AppShell>; }
+import { ProfileEditor } from "@/components/profile-editor";
+import { NotificationInbox } from "@/components/notification-inbox";
+export default function HostProfilePage() { return <AppShell mode="host" current="profile"><span className="eyebrow">Host space</span><h1 className="serif">Profile</h1><p className="muted">Approval status and moderation decisions remain server-controlled.</p><section className="form-card"><ProfileEditor mode="host" /></section><section className="choice-card"><span className="eyebrow">Notifications</span><NotificationInbox /></section></AppShell>; }

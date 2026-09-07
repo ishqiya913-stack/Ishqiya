@@ -1,3 +1,3 @@
 import { AppShell } from "@/components/app-shell";
-import { EmptyState } from "@/components/ui";
-export default function HostChatPage() { return <AppShell mode="host" current="chat"><span className="eyebrow">Host space</span><h1 className="serif">Chat</h1><EmptyState title="Your conversations will appear here" message="This space is ready for real conversations when host access is connected." /></AppShell>; }
+import { HostChatList } from "@/components/host-chat-list";
+export default function HostChatPage() { return <AppShell mode="host" current="chat"><span className="eyebrow">Host space</span><h1 className="serif">Chat</h1><HostChatList /></AppShell>; }

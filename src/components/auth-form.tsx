@@ -1,88 +1,259 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
-import Image from "next/image";
-import { Button, Input, Loading } from "./ui";
-import { BackControl } from "./navigation";
+import { FormEvent, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+import { BackControl } from "@/components/navigation";
+import { Button, Input } from "@/components/ui";
 
-export function AuthForm({ mode, action }: { mode: "user" | "host"; action: "sign in" | "sign up" }) {
-  const [values, setValues] = useState({ email: "", password: "", confirm: "" });
-  const [photos, setPhotos] = useState<(File | null)[]>([null, null, null]);
-  const [photoPreviews, setPhotoPreviews] = useState<string[]>(["", "", ""]);
-  const previewUrlsRef = useRef<string[]>([]);
-  const [error, setError] = useState("");
+type Mode = "user" | "host";
+type Action = "sign in" | "sign up";
+
+export function AuthScreen({
+  mode,
+  action,
+}: {
+  mode: Mode;
+  action: Action;
+}) {
+  const router = useRouter();
+  const supabase = createClient();
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [photoFiles, setPhotoFiles] = useState<(File | null)[]>([null, null, null]);
+  const [photoPreviews, setPhotoPreviews] = useState<(string | null)[]>([null, null, null]);
   const [loading, setLoading] = useState(false);
-  const submit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault(); setError("");
-    if (!values.email || !values.password || (action === "sign up" && !values.confirm)) { setError("Please complete every required field."); return; }
-    if (action === "sign up" && values.password !== values.confirm) { setError("Passwords do not match."); return; }
-    if (mode === "host" && action === "sign up" && photos.some((photo) => !photo)) { setError("Upload all 3 verification photos to continue."); return; }
-    setLoading(true); window.setTimeout(() => setLoading(false), 700);
-  };
-  const set = (key: keyof typeof values) => (event: React.ChangeEvent<HTMLInputElement>) => setValues({ ...values, [key]: event.target.value });
-  const setPhoto = (index: number) => (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0] ?? null;
-    if (!file) return;
-    if (!file.type.startsWith("image/")) { setError("Each verification photo must be an image file."); return; }
-    setPhotos((current) => current.map((photo, photoIndex) => photoIndex === index ? file : photo));
-    setPhotoPreviews((current) => {
-      if (current[index]) URL.revokeObjectURL(current[index]);
-      const next = current.map((preview, previewIndex) => previewIndex === index ? URL.createObjectURL(file) : preview);
-      previewUrlsRef.current = next;
-      return next;
-    });
-    setError("");
-  };
-  const removePhoto = (index: number) => {
-    setPhotos((current) => current.map((photo, photoIndex) => photoIndex === index ? null : photo));
-    setPhotoPreviews((current) => {
-      if (current[index]) URL.revokeObjectURL(current[index]);
-      const next = current.map((preview, previewIndex) => previewIndex === index ? "" : preview);
-      previewUrlsRef.current = next;
-      return next;
-    });
-  };
-  useEffect(() => () => previewUrlsRef.current.forEach((preview) => preview && URL.revokeObjectURL(preview)), []);
-  const base = mode === "user" ? "/auth/user" : "/auth/host";
-  return <form onSubmit={submit} noValidate>
-    <Input id="email" label="Email" type="email" autoComplete="email" value={values.email} onChange={set("email")} />
-    <Input id="password" label="Password" type="password" autoComplete={action === "sign in" ? "current-password" : "new-password"} value={values.password} onChange={set("password")} />
-    {action === "sign up" && <Input id="confirm-password" label="Confirm password" type="password" autoComplete="new-password" value={values.confirm} onChange={set("confirm")} />}
-    {mode === "host" && action === "sign up" && <PhotoVerification photos={photos} previews={photoPreviews} onChange={setPhoto} onRemove={removePhoto} />}
-    {action === "sign in" && <Link className="form-footer" href={`${base}/forgot-password`}>Forgot password?</Link>}
-    {error && <p className="form-error" role="alert">{error}</p>}
-    <Button type="submit" disabled={loading}>{loading ? <Loading label="Submitting" /> : `${action[0].toUpperCase()}${action.slice(1)}`}</Button>
-    {action === "sign up" && <p className="form-footer">Already have an account? <Link href={`${base}/sign-in`}>Sign in</Link></p>}
-  </form>;
-}
+  const [message, setMessage] = useState("");
 
-function PhotoVerification({ photos, previews, onChange, onRemove }: { photos: (File | null)[]; previews: string[]; onChange: (index: number) => (event: React.ChangeEvent<HTMLInputElement>) => void; onRemove: (index: number) => void }) {
-  return <fieldset className="photo-verification">
-    <legend>Real photo verification <span>Required</span></legend>
-    <p className="photo-verification-intro">Upload 3 recent photos of yourself. Each must be front-facing, show your full body, and feature different attire.</p>
-    <div className="photo-guidance"><span aria-hidden="true">✓</span><p>Use clear, well-lit photos of the person registering. AI-generated, AI-replaced, heavily edited, fake, or misleading photos are not accepted.</p></div>
-    <div className="photo-grid">
-      {photos.map((photo, index) => <div className="photo-slot" key={index}>
-        <div className="photo-slot-heading"><span>Photo {index + 1}</span><b>Required</b></div>
-        {photo ? <div className="photo-preview">
-          <Image src={previews[index]} alt={`Verification preview ${index + 1}`} fill unoptimized sizes="(max-width: 700px) 80vw, 220px" />
-          <div className="photo-preview-actions">
-            <label htmlFor={`photo-${index}`}>Replace<input id={`photo-${index}`} type="file" accept="image/*" onChange={onChange(index)} /></label>
-            <button type="button" onClick={() => onRemove(index)}>Remove</button>
+  const isSignUp = action === "sign up";
+
+  function updatePhoto(index: number, file: File | null) {
+    if (file && (!file.type.startsWith("image/") || file.size > 10 * 1024 * 1024)) {
+      setMessage("Each photo must be an image smaller than 10 MB.");
+      return;
+    }
+    setPhotoFiles((current) => {
+      const next = [...current];
+      next[index] = file;
+      return next;
+    });
+    setPhotoPreviews((current) => {
+      if (current[index]) URL.revokeObjectURL(current[index]!);
+      const next = [...current];
+      next[index] = file ? URL.createObjectURL(file) : null;
+      return next;
+    });
+  }
+
+  useEffect(() => () => photoPreviews.forEach((preview) => preview && URL.revokeObjectURL(preview)), [photoPreviews]);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMessage("");
+
+    if (!email.trim() || !password) {
+      setMessage("Email and password are required.");
+      return;
+    }
+
+    if (isSignUp && password !== confirmPassword) {
+      setMessage("Passwords do not match.");
+      return;
+    }
+
+    if (isSignUp && mode === "host" && photoFiles.some((file) => !file)) {
+      setMessage("All 3 required Host photos must be uploaded.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      if (isSignUp) {
+        const signupData = new FormData();
+        signupData.set("email", email.trim().toLowerCase());
+        signupData.set("password", password);
+        if (mode === "host") photoFiles.forEach((file, index) => file && signupData.set(`photo-${index + 1}`, file));
+        const response = await fetch(`/api/auth/${mode}/sign-up`, { method: "POST", body: signupData });
+        const result = await response.json() as { error?: string; user?: { id: string }; session?: { access_token: string; refresh_token: string } | null };
+        if (!response.ok || !result.user) throw new Error(result.error || "Account creation failed.");
+
+        if (result.session) {
+          const { error } = await supabase.auth.setSession(result.session);
+          if (error) throw error;
+
+        }
+
+        if (!result.session) {
+          setMessage(
+            mode === "host"
+              ? "Host account created. Check your email to verify your account. Your 3 photos will require verification before approval."
+              : "User account created. Check your email to verify your account."
+          );
+          return;
+        }
+
+        router.push(mode === "host" ? "/host/profile" : "/user/discover");
+        router.refresh();
+      } else {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: email.trim().toLowerCase(),
+          password,
+        });
+
+        if (error) throw error;
+        if (!data.user) throw new Error("Sign in failed.");
+
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", data.user.id)
+          .maybeSingle();
+
+        if (profileError || !profile || profile.role !== mode) {
+          await supabase.auth.signOut();
+          throw new Error(
+            `This account is not a ${mode} account. Use the correct Ishqiya sign-in page.`
+          );
+        }
+
+        router.push(mode === "host" ? "/host/chat" : "/user/discover");
+        router.refresh();
+      }
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Authentication failed.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <main className="auth-page">
+      <div className="auth-flow-nav">
+        <BackControl />
+      </div>
+
+      <div className="auth-layout">
+        <aside className="auth-aside">
+          <div className="brand">
+            <span className="brand-mark">♥</span>
+            <span style={{ color: "var(--cream)" }}>ISHQIYA</span>
           </div>
-        </div> : <label className="photo-upload" htmlFor={`photo-${index}`}>
-          <span className="photo-upload-mark" aria-hidden="true">＋</span>
-          <strong>Add photo</strong>
-          <small>Front-facing · full body</small>
-          <input id={`photo-${index}`} type="file" accept="image/*" onChange={onChange(index)} />
-        </label>}
-      </div>)}
-    </div>
-    <p className="photo-verification-note">Photos are collected for verification review. Final approval requires authoritative verification and cannot be guaranteed by this form.</p>
-  </fieldset>;
-}
 
-export function AuthScreen({ mode, action }: { mode: "user" | "host"; action: "sign in" | "sign up" }) {
-  return <main className="auth-page"><div className="auth-flow-nav"><BackControl /></div><div className="auth-layout"><aside className="auth-aside"><div className="brand"><span className="brand-mark">I</span><span style={{ color: "var(--cream)" }}>ISHQIYA</span></div><h1 className="serif">Every feeling deserves a beginning.</h1><p>{mode === "user" ? "Enter a softer space to discover connection at your own pace." : "A considered space for hosts to meet every conversation with presence."}</p></aside><section className="form-card"><span className="eyebrow">{mode} access</span><h2>{action === "sign in" ? "Welcome back" : "Begin your story"}</h2><p className="muted">{action === "sign in" ? "Sign in to continue to your space." : "Create your Ishqiya account with your email."}</p><AuthForm mode={mode} action={action} /></section></div></main>;
+          <h1 className="serif">
+            Every feeling deserves a beginning.
+          </h1>
+
+          <p>
+            {mode === "user"
+              ? "Enter a softer space to discover genuine connection."
+              : "A considered space for Hosts to meet every conversation with presence."}
+          </p>
+        </aside>
+
+        <section className="form-card">
+          <span className="eyebrow">{mode} access</span>
+
+          <h2>{isSignUp ? "Begin your story" : "Welcome back"}</h2>
+
+          <p className="muted">
+            {isSignUp
+              ? `Create your Ishqiya ${mode} account with your email.`
+              : "Sign in to continue to your Ishqiya space."}
+          </p>
+
+          <form onSubmit={submit}>
+            <Input
+              id="email"
+              label="Email"
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+
+            <Input
+              id="password"
+              label="Password"
+              type="password"
+              autoComplete={isSignUp ? "new-password" : "current-password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+
+            {isSignUp && (
+              <Input
+                id="confirm-password"
+                label="Confirm Password"
+                type="password"
+                autoComplete="new-password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+              />
+            )}
+
+            {isSignUp && mode === "host" && (
+              <fieldset>
+                <legend>Required verification photos</legend>
+                <p className="muted">
+                  Upload 3 real, front-facing full-body photos of yourself, each in
+                  different attire. AI-generated, replaced, heavily edited or misleading
+                  photos are not accepted.
+                </p>
+
+                {[0, 1, 2].map((index) => (
+                  <div key={index}>
+                    <label htmlFor={`host-photo-${index + 1}`}>
+                      Photo {index + 1}
+                    </label>
+                    <input
+                      id={`host-photo-${index + 1}`}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={(e) =>
+                        updatePhoto(index, e.target.files?.[0] ?? null)
+                      }
+                      required
+                    />
+                    {photoFiles[index] && (
+                      <div>
+                        {photoPreviews[index] && <img src={photoPreviews[index]} alt={`Preview of photo ${index + 1}`} width={120} height={160} />}
+                        <button type="button" onClick={() => updatePhoto(index, null)}>Remove photo</button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+
+                <p className="photo-verification-note">
+                  Photos are collected for verification review. Final approval requires
+                  authoritative verification and cannot be guaranteed by this form.
+                </p>
+              </fieldset>
+            )}
+
+            {message && (
+              <p role="alert" className="muted">
+                {message}
+              </p>
+            )}
+
+            <Button type="submit" disabled={loading}>
+              {loading ? "Please wait..." : isSignUp ? "Create account" : "Sign in"}
+            </Button>
+          </form>
+
+          {!isSignUp && (
+            <div className="form-footer">
+              <a href={`/auth/${mode}/forgot-password`}>Forgot password?</a>
+            </div>
+          )}
+        </section>
+      </div>
+    </main>
+  );
 }

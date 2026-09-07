@@ -6,7 +6,7 @@ export function BackControl({ href = "/", label = "Back to Ishqiya" }: { href?: 
   return <Link className="flow-back" href={href} aria-label={label}><span aria-hidden="true">←</span><span>{label}</span></Link>;
 }
 
-const userLinks = [["⌂", "Discover", "/user/discover"], ["♡", "Match", "/user/match"], ["◈", "Wallet", "/user/wallet"], ["○", "Profile", "/user/profile"]];
+const userLinks = [["⌂", "Discover", "/user/discover"], ["♡", "Match", "/user/match"], ["◈", "Wallet", "/user/wallet"]];
 const hostLinks = [["◌", "Chat", "/host/chat"], ["◷", "History", "/host/history"], ["○", "Profile", "/host/profile"]];
 
 export function AppNav({ mode, current }: { mode: "user" | "host"; current: string }) {
