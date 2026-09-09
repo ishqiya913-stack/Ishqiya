@@ -1,3 +1,4 @@
 import { AppShell } from "@/components/app-shell";
 import { WalletPanel } from "@/components/wallet-panel";
-export default function WalletPage() { return <AppShell mode="user" current="wallet"><span className="eyebrow">Your account</span><h1 className="serif">Wallet</h1><p className="muted">Manual UPI payments are reviewed before coins are credited.</p><WalletPanel /></AppShell>; }
+import { GooglePlayWallet } from "@/components/google-play-wallet";
+export default function WalletPage() { return <AppShell mode="user" current="wallet"><span className="eyebrow">Your account</span><h1 className="serif">Wallet</h1><p className="muted">Google Play purchases are verified automatically before coins are credited.</p><WalletPanel /></AppShell>; }

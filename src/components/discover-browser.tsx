@@ -12,6 +12,10 @@ export function DiscoverBrowser() {
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [reportingId, setReportingId] = useState<string | null>(null);
+  const [reportReason, setReportReason] = useState("");
+  const [reportLoading, setReportLoading] = useState(false);
+  const [blockingId, setBlockingId] = useState<string | null>(null);
 
   async function load(nextOffset = 0) {
     setLoading(true);
@@ -24,6 +28,46 @@ export function DiscoverBrowser() {
   }
 
   useEffect(() => { let active = true; async function initialLoad() { setLoading(true); const response = await fetch("/api/discover?limit=20&offset=0"); const result = await response.json() as { profiles?: Profile[]; error?: string }; if (!active) return; if (!response.ok) setMessage(result.error || "Discovery could not be loaded."); else setProfiles(result.profiles || []); setLoading(false); } void initialLoad(); return () => { active = false; }; }, []);
+
+  async function blockHost(targetId: string) {
+    if (!window.confirm("Block this Host? They will no longer appear to you.")) return;
+    setBlockingId(targetId);
+    const response = await fetch("/api/blocks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ blockedId: targetId }),
+    });
+    const result = await response.json() as { error?: string };
+    setBlockingId(null);
+    if (!response.ok) {
+      setMessage(result.error || "Host could not be blocked.");
+      return;
+    }
+    setProfiles((current) => current.filter((p) => p.host_id !== targetId));
+    setMessage("Host blocked.");
+  }
+
+  async function submitReport(targetId: string) {
+    if (!reportReason) {
+      setMessage("Please select a report reason.");
+      return;
+    }
+    setReportLoading(true);
+    const response = await fetch("/api/reports", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reportedId: targetId, reason: reportReason, context: { source: "discover" } }),
+    });
+    const result = await response.json() as { error?: string };
+    setReportLoading(false);
+    if (!response.ok) {
+      setMessage(result.error || "Report could not be submitted.");
+      return;
+    }
+    setReportingId(null);
+    setReportReason("");
+    setMessage("Report submitted. Thank you for helping keep Ishqiya safe.");
+  }
 
   async function act(targetId: string, action: "like" | "pass") {
     const response = await fetch("/api/discover/action", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ targetId, action }) });
@@ -42,7 +86,7 @@ export function DiscoverBrowser() {
     <div className={view === "grid" ? "discover-grid" : "discover-grid discover-grid-cards"}>
       {profiles.map((profile) => <article className="discover-card" key={profile.host_id}>
         <div className="photo-placeholder" role="img" aria-label={`${profile.display_name} profile photo`}>{profile.avatar_path ? <img src={profile.avatar_path} alt="" /> : "Host photo"}</div>
-        <div className="discover-info"><h2>{profile.display_name}{profile.age ? `, ${profile.age}` : ""}</h2><p>{profile.city || "Ishqiya"}<br />{profile.headline || profile.bio || "A considered conversation awaits."}</p><div className="discover-actions"><Button type="button" variant="danger" onClick={() => void act(profile.host_id, "pass")}>Pass</Button><Button type="button" onClick={() => void act(profile.host_id, "like")}>Like</Button></div><Link href={`/user/match?host=${profile.host_id}`}>View connection</Link></div>
+        <div className="discover-info"><h2>{profile.display_name}{profile.age ? `, ${profile.age}` : ""}</h2><p>{profile.city || "Ishqiya"}<br />{profile.headline || profile.bio || "A considered conversation awaits."}</p><div className="discover-actions"><Button type="button" variant="danger" onClick={() => void act(profile.host_id, "pass")}>Pass</Button><Button type="button" onClick={() => void act(profile.host_id, "like")}>Like</Button></div><Link href={`/user/match?host=${profile.host_id}`}>View connection</Link><div className="form-footer"><Button type="button" variant="quiet" onClick={() => setReportingId(profile.host_id)}>Report</Button><Button type="button" variant="quiet" disabled={blockingId === profile.host_id} onClick={() => void blockHost(profile.host_id)}>{blockingId === profile.host_id ? "Blocking..." : "Block"}</Button></div>{reportingId === profile.host_id && <div className="card" role="dialog" aria-label="Report Host"><h3>Report this Host</h3><select value={reportReason} onChange={(e) => setReportReason(e.target.value)}><option value="">Select a reason</option><option>Fake or misleading profile</option><option>Inappropriate behaviour</option><option>Harassment or abuse</option><option>Requesting personal contact information</option><option>Fraud or scam</option><option>Other</option></select><div className="form-footer"><Button type="button" variant="quiet" onClick={() => { setReportingId(null); setReportReason(""); }}>Cancel</Button><Button type="button" disabled={reportLoading} onClick={() => void submitReport(profile.host_id)}>{reportLoading ? "Submitting..." : "Submit report"}</Button></div></div>}</div>
       </article>)}
     </div>
     <Button type="button" variant="quiet" disabled={loading} onClick={() => { const next = offset + 20; setOffset(next); void load(next); }}>{loading ? "Loading..." : "Load more"}</Button>
