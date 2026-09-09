@@ -6,7 +6,7 @@ import { Button, Input } from "@/components/ui";
 import { BackControl } from "@/components/navigation";
 import { createClient } from "@/lib/supabase/client";
 
-export function PasswordUpdateForm({ mode }: { mode: "user" | "host" }) {
+export function PasswordUpdateForm({ mode }: { mode: "user" | "host" | "admin" }) {
   const router = useRouter();
   const supabase = createClient();
   const [password, setPassword] = useState("");

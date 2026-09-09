@@ -211,41 +211,21 @@ export function AuthScreen({
                     <label htmlFor={`host-photo-${index + 1}`}>
                       Photo {index + 1}
                     </label>
-                    <input className="photo-file-input" id={`host-photo-${index + 1}`} type="file"
+                    <input
+                      id={`host-photo-${index + 1}`}
+                      type="file"
                       accept="image/jpeg,image/png,image/webp"
                       onChange={(e) =>
                         updatePhoto(index, e.target.files?.[0] ?? null)
                       }
                       required
                     />
-                    <div className="photo-upload-card">
-  <label htmlFor={`host-photo-${index + 1}`} className="photo-placeholder">
-    {photoPreviews[index] ? (
-      <img
-        src={photoPreviews[index]}
-        alt={`Photo ${index + 1} preview`}
-        width={240}
-        height={300}
-        className="photo-preview-image"
-      />
-    ) : (
-      <div className="photo-placeholder-content">
-        <span className="photo-plus">+</span>
-        <strong>Photo {index + 1}</strong>
-        <span>Add your photo</span>
-      </div>
-    )}
-  </label>
-  {photoFiles[index] && (
-    <button
-      type="button"
-      className="photo-remove-button"
-      onClick={() => updatePhoto(index, null)}
-    >
-      Remove photo
-    </button>
-  )}
-</div>
+                    {photoFiles[index] && (
+                      <div>
+                        {photoPreviews[index] && <img src={photoPreviews[index]} alt={`Preview of photo ${index + 1}`} width={120} height={160} />}
+                        <button type="button" onClick={() => updatePhoto(index, null)}>Remove photo</button>
+                      </div>
+                    )}
                   </div>
                 ))}
 

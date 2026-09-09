@@ -17,7 +17,7 @@ export function AuthResetForm({ mode }: { mode: "user" | "host" }) {
     setLoading(true);
     setMessage("");
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
-      redirectTo: `${window.location.origin}/auth/callback?next=/auth/${mode}/reset-password`,
+      redirectTo: `${window.location.origin}/auth/${mode}/reset-password`,
     });
     setMessage(error ? error.message : "If an account exists for that email, a reset link is on its way.");
     setLoading(false);
