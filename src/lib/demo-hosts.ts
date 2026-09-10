@@ -12,7 +12,7 @@ export type DemoHost = {
 // Development-only preview identities. Never persisted as real Hosts,
 // never eligible for payments/earnings, and excluded from production discovery.
 export const DEMO_HOSTS: DemoHost[] = [
-  { host_id: "demo-host-01", display_name: "Aarohi", headline: "Romantic soul • Great conversations", bio: "Sweet, spicy and always up for good conversation.", city: "Mumbai", age: 23, avatar_path: "/demo-hosts/01.png", is_demo: true },
+  { host_id: "demo-host-01", display_name: "Aarohi", headline: "Romantic soul • Great conversations", bio: "Sweet, spicy and always up for good conversation.", city: "Mumbai", age: 23, avatar_path: "/demo-hosts/01.jpg", is_demo: true },
   { host_id: "demo-host-02", display_name: "Kiara", headline: "Coffee, music & midnight talks", bio: "Naughty by nature. Good vibes, hot chats and unforgettable moments.", city: "Delhi", age: 25, avatar_path: "/demo-hosts/02.jpg", is_demo: true },
   { host_id: "demo-host-03", display_name: "Meera", headline: "Travel • Fashion • Good energy", bio: "Music, movies, meaningful conversations and a little bit of madness.", city: "Bangalore", age: 24, avatar_path: "/demo-hosts/03.jpg", is_demo: true },
   { host_id: "demo-host-04", display_name: "Nisha", headline: "Soft heart, bold personality", bio: "Confident, caring and always ready to make your day special.", city: "Hyderabad", age: 24, avatar_path: "/demo-hosts/04.jpg", is_demo: true },
