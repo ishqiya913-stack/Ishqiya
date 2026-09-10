@@ -13,7 +13,6 @@ export function AuthScreen({ mode, action }: { mode: Mode; action: Action }) {
   const router = useRouter();
   const supabase = createClient();
   const isSignUp = action === "sign up";
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -25,7 +24,6 @@ export function AuthScreen({ mode, action }: { mode: Mode; action: Action }) {
   const [photoPreviews, setPhotoPreviews] = useState<(string | null)[]>([null, null, null]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
-
   const detailsComplete = Boolean(legalName.trim() && phone.trim() && dateOfBirth);
 
   function updatePhoto(index: number, file: File | null) {
@@ -47,7 +45,6 @@ export function AuthScreen({ mode, action }: { mode: Mode; action: Action }) {
     setMessage("");
     if (!email.trim() || !password) return setMessage("Email and password are required.");
     if (isSignUp && password !== confirmPassword) return setMessage("Passwords do not match.");
-
     if (isSignUp && mode === "host") {
       if (!detailsComplete) return setMessage("Please complete your Host details first.");
       const dob = new Date(`${dateOfBirth}T00:00:00`);
@@ -60,7 +57,6 @@ export function AuthScreen({ mode, action }: { mode: Mode; action: Action }) {
       if (photoFiles.some((file) => !file)) return setMessage("All 3 required Host photos must be uploaded.");
       if (!agreementAccepted) return setMessage("You must accept the Ishqiya Host Agreement.");
     }
-
     setLoading(true);
     try {
       if (isSignUp) {
@@ -114,7 +110,6 @@ export function AuthScreen({ mode, action }: { mode: Mode; action: Action }) {
           <h1 className="serif">Every feeling deserves a beginning.</h1>
           <p>{mode === "user" ? "Enter a softer space to discover genuine connection." : "A considered space for Hosts to meet every conversation with presence."}</p>
         </aside>
-
         <section className="form-card">
           <span className="eyebrow">{mode} access</span>
           <h2>{isSignUp ? "Begin your story" : "Welcome back"}</h2>
@@ -125,12 +120,15 @@ export function AuthScreen({ mode, action }: { mode: Mode; action: Action }) {
             {isSignUp && <Input id="confirm-password" label="Confirm Password" type="password" autoComplete="new-password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required />}
 
             {isSignUp && mode === "host" && (
-              <>
+              <div className="host-signup-sections">
                 <fieldset className="auth-fieldset">
                   <legend>Host details</legend>
-                  <label><span>Full Legal Name</span><input type="text" value={legalName} onChange={(e) => { setLegalName(e.target.value); setAgreementAccepted(false); }} placeholder="Enter your full legal name" autoComplete="name" required /></label>
-                  <label><span>Date of Birth</span><input type="date" value={dateOfBirth} onChange={(e) => { setDateOfBirth(e.target.value); setAgreementAccepted(false); }} required /><small>Host registration is restricted to persons aged 18 or older.</small></label>
-                  <label><span>Contact Number</span><input type="tel" value={phone} onChange={(e) => { setPhone(e.target.value); setAgreementAccepted(false); }} placeholder="Enter your mobile number" autoComplete="tel" required /></label>
+                  <p className="muted">These details are used for account verification and payout compliance.</p>
+                  <div className="host-details-grid">
+                    <div className="field"><label htmlFor="legal-name">Full legal name</label><input id="legal-name" type="text" value={legalName} onChange={(e) => { setLegalName(e.target.value); setAgreementAccepted(false); }} placeholder="Enter your full legal name" autoComplete="name" required /></div>
+                    <div className="field"><label htmlFor="date-of-birth">Date of birth</label><input id="date-of-birth" type="date" value={dateOfBirth} onChange={(e) => { setDateOfBirth(e.target.value); setAgreementAccepted(false); }} required /><small>Hosts must be 18 or older.</small></div>
+                    <div className="field host-phone-field"><label htmlFor="contact-number">Contact number</label><input id="contact-number" type="tel" value={phone} onChange={(e) => { setPhone(e.target.value); setAgreementAccepted(false); }} placeholder="Enter your mobile number" autoComplete="tel" required /></div>
+                  </div>
                 </fieldset>
 
                 {detailsComplete && (
@@ -147,7 +145,7 @@ export function AuthScreen({ mode, action }: { mode: Mode; action: Action }) {
                 )}
 
                 <fieldset className="auth-fieldset">
-                  <legend>Required verification photos</legend>
+                  <legend>Verification photos</legend>
                   <p className="muted">Upload 3 real, front-facing full-body photos of yourself, each in different attire. AI-generated, replaced, heavily edited or misleading photos are not accepted.</p>
                   <div className="host-photo-grid">
                     {[0, 1, 2].map((index) => (
@@ -162,7 +160,7 @@ export function AuthScreen({ mode, action }: { mode: Mode; action: Action }) {
                   </div>
                   <p className="photo-verification-note">Photos are collected for verification. Final approval requires verification review.</p>
                 </fieldset>
-              </>
+              </div>
             )}
 
             {message && <p role="alert" className="muted">{message}</p>}
