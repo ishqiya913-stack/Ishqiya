@@ -51,20 +51,25 @@ export function DiscoverBrowser() {
   if (!loading && profiles.length === 0) return <EmptyState title="No Hosts are available yet" message="Approved, active Hosts will appear here when they are ready to meet." />;
 
   const current = profiles[0];
-  const renderCard = (profile: Profile) => <article className="discover-card" key={profile.host_id}>
-    <div className="discover-photo" role="img" aria-label={`${profile.display_name} profile photo`}>
-      {profile.avatar_path ? <img src={profile.avatar_path} alt={`${profile.display_name} profile`} /> : <div className="photo-placeholder">Profile photo</div>}
-    </div>
-    <div className="discover-info">
-      <div className="discover-profile-heading"><div><h2>{profile.display_name}{profile.age ? `, ${profile.age}` : ""}</h2><p className="discover-city">{profile.city || ""}</p></div><span className="online-dot" aria-label="Available" title="Available" /></div>
-      <p>{profile.headline || profile.bio || "A great conversation awaits."}</p>
-      <div className="discover-actions"><Button type="button" variant="danger" onClick={() => void act(profile.host_id, "pass")}>✕ Pass</Button><Button type="button" onClick={() => void act(profile.host_id, "like")}>♥ Like</Button></div>
-    </div>
-  </article>;
+  const renderCard = (profile: Profile) => (
+    <article className="discover-card" key={profile.host_id}>
+      <div className="discover-photo" role="img" aria-label={`${profile.display_name} profile photo`} style={{ aspectRatio: "4 / 5", maxHeight: "min(68vh, 620px)", minHeight: 360, overflow: "hidden", position: "relative", background: "var(--blush)" }}>
+        {profile.avatar_path ? <img src={profile.avatar_path} alt={`${profile.display_name} profile`} style={{ display: "block", width: "100%", height: "100%", objectFit: "cover", objectPosition: "center" }} /> : <div className="photo-placeholder" style={{ height: "100%", minHeight: 0 }}>Profile photo</div>}
+      </div>
+      <div className="discover-info">
+        <div style={{ alignItems: "center", display: "flex", justifyContent: "space-between", gap: "1rem" }}>
+          <div><h2>{profile.display_name}{profile.age ? `, ${profile.age}` : ""}</h2><p style={{ margin: ".25rem 0 0" }}>{profile.city || ""}</p></div>
+          <span aria-label="Available" title="Available" style={{ width: 10, height: 10, borderRadius: "50%", background: "#62c58a", flex: "0 0 auto" }} />
+        </div>
+        <p>{profile.headline || profile.bio || "A great conversation awaits."}</p>
+        <div className="discover-actions"><Button type="button" variant="danger" onClick={() => void act(profile.host_id, "pass")}>✕ Pass</Button><Button type="button" onClick={() => void act(profile.host_id, "like")}>♥ Like</Button></div>
+      </div>
+    </article>
+  );
 
   return <>
-    <div className="discover-switcher"><Button type="button" variant={view === "cards" ? "primary" : "quiet"} onClick={() => setView("cards")}>Swipe</Button><Button type="button" variant={view === "grid" ? "primary" : "quiet"} onClick={() => setView("grid")}>All profiles</Button></div>
+    <div className="form-footer" style={{ display: "flex", justifyContent: "center", gap: ".6rem", marginBottom: "1rem" }}><Button type="button" variant={view === "cards" ? "primary" : "quiet"} onClick={() => setView("cards")}>Swipe</Button><Button type="button" variant={view === "grid" ? "primary" : "quiet"} onClick={() => setView("grid")}>All profiles</Button></div>
     {message && <p role="status" className="muted">{message}</p>}
-    {view === "cards" ? <section className="swipe-stage" aria-label="Swipe discovery"><div className="swipe-count">{profiles.length} available</div>{renderCard(current)}</section> : <div className="discover-grid">{profiles.map(renderCard)}</div>}
+    {view === "cards" ? <section className="swipe-stage" aria-label="Swipe discovery"><div className="muted" style={{ marginBottom: ".65rem" }}>{profiles.length} available</div>{renderCard(current)}</section> : <div className="discover-grid">{profiles.map(renderCard)}</div>}
   </>;
 }
