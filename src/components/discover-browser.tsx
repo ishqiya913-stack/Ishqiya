@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, EmptyState, Loading } from "@/components/ui";
 import { GOOGLE_PLAY_PRODUCTS } from "@/components/google-play-wallet";
+import { DEMO_HOSTS } from "@/lib/demo-hosts";
 
 type Profile = {
   host_id: string;
@@ -13,7 +14,14 @@ type Profile = {
   city: string | null;
   age: number | null;
   avatar_path: string | null;
+  is_demo?: boolean;
 };
+
+function withDemoHosts(realProfiles: Profile[]) {
+  if (process.env.NODE_ENV === "production") return realProfiles;
+  const realIds = new Set(realProfiles.map((profile) => profile.host_id));
+  return [...realProfiles, ...DEMO_HOSTS.filter((profile) => !realIds.has(profile.host_id))];
+}
 
 declare global {
   interface Window {
@@ -57,9 +65,9 @@ export function DiscoverBrowser() {
       const response = await fetch("/api/discover?limit=20&offset=0", { cache: "no-store" });
       const result = await response.json() as { profiles?: Profile[]; error?: string };
       if (!response.ok) setMessage(result.error || "Discovery could not be loaded.");
-      setProfiles(result.profiles || []);
+      setProfiles(withDemoHosts(result.profiles || []));
     } catch {
-      setProfiles([]);
+      setProfiles(withDemoHosts([]));
       setMessage("Discovery could not reach the server.");
     } finally {
       setLoading(false);
@@ -78,6 +86,13 @@ export function DiscoverBrowser() {
       if (!pendingHostId) return;
       setProcessingPayment(true);
       try {
+        const selectedHost = profiles.find((profile) => profile.host_id === pendingHostId);
+        if (selectedHost?.is_demo) {
+          setMessage("Payment verified. This development preview has no real Host participant.");
+          setPaymentHost(null);
+          setPendingHostId("");
+          return;
+        }
         const response = await fetch("/api/video/request", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -98,7 +113,7 @@ export function DiscoverBrowser() {
     const listener = () => void handlePurchaseComplete();
     window.addEventListener("ishqiya-purchase-complete", listener);
     return () => window.removeEventListener("ishqiya-purchase-complete", listener);
-  }, [pendingHostId, router]);
+  }, [pendingHostId, profiles, router]);
 
   function openVideoPayment(profile: Profile) {
     setMessage("");
@@ -115,18 +130,15 @@ export function DiscoverBrowser() {
         window.dispatchEvent(new CustomEvent("ishqiya-buy-coins", { detail: { productId } }));
         return;
       }
-
       const loaded = await loadRazorpay();
       if (!loaded || !window.Razorpay) throw new Error("Browser payment gateway could not be loaded.");
-
       const orderResponse = await fetch("/api/browser-payment/create-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ productId }),
       });
-      const order = await orderResponse.json() as { keyId?: string; orderId?: string; amount?: number; currency?: string; coins?: number; amountRupees?: number; error?: string };
+      const order = await orderResponse.json() as { keyId?: string; orderId?: string; amount?: number; currency?: string; coins?: number; error?: string };
       if (!orderResponse.ok || !order.keyId || !order.orderId || !order.amount) throw new Error(order.error || "Browser payment order could not be created.");
-
       const Razorpay = window.Razorpay;
       const checkout = new Razorpay({
         key: order.keyId,
@@ -135,7 +147,6 @@ export function DiscoverBrowser() {
         name: "Ishqiya",
         description: `${order.coins?.toLocaleString() || "Selected"} Ishqiya Coins`,
         order_id: order.orderId,
-        theme: { color: "#b52f63" },
         handler: async (response: { razorpay_payment_id: string; razorpay_order_id: string; razorpay_signature: string }) => {
           try {
             const verifyResponse = await fetch("/api/browser-payment/verify", {
@@ -164,6 +175,10 @@ export function DiscoverBrowser() {
   }
 
   async function act(targetId: string, action: "like" | "pass") {
+    if (targetId.startsWith("demo-host-")) {
+      setProfiles((current) => current.filter((profile) => profile.host_id !== targetId));
+      return;
+    }
     const response = await fetch("/api/discover/action", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -183,10 +198,7 @@ export function DiscoverBrowser() {
         {profile.avatar_path ? <img src={profile.avatar_path} alt={`${profile.display_name} profile`} loading="lazy" onError={(event) => { event.currentTarget.style.display = "none"; }} style={{ display: "block", width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 15%" }} /> : <div className="photo-placeholder" style={{ height: "100%", minHeight: 0 }}>Profile photo</div>}
       </div>
       <div className="discover-info" style={{ padding: "1.05rem 1.1rem 1.15rem" }}>
-        <div style={{ alignItems: "flex-start", display: "flex", justifyContent: "space-between", gap: ".8rem" }}>
-          <div style={{ minWidth: 0 }}><h2 style={{ margin: 0, fontSize: "1.15rem" }}>{profile.display_name}{profile.age ? `, ${profile.age}` : ""}</h2>{profile.city && <p style={{ margin: ".3rem 0 0", color: "var(--muted)" }}>{profile.city}</p>}</div>
-          <span aria-label="Available" title="Available" style={{ width: 9, height: 9, marginTop: 7, borderRadius: "50%", background: "#62c58a", flex: "0 0 auto" }} />
-        </div>
+        <div style={{ alignItems: "flex-start", display: "flex", justifyContent: "space-between", gap: ".8rem" }}><div style={{ minWidth: 0 }}><h2 style={{ margin: 0, fontSize: "1.15rem" }}>{profile.display_name}{profile.age ? `, ${profile.age}` : ""}</h2>{profile.city && <p style={{ margin: ".3rem 0 0", color: "var(--muted)" }}>{profile.city}</p>}</div><span aria-label="Available" title="Available" style={{ width: 9, height: 9, marginTop: 7, borderRadius: "50%", background: "#62c58a", flex: "0 0 auto" }} /></div>
         <p style={{ color: "var(--muted)", lineHeight: 1.5, margin: ".65rem 0 .9rem", minHeight: "2.5rem" }}>{profile.headline || profile.bio || "A great conversation awaits."}</p>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: ".55rem", marginBottom: ".55rem" }}><Button type="button" variant="danger" onClick={() => void act(profile.host_id, "pass")}>✕ Pass</Button><Button type="button" onClick={() => void act(profile.host_id, "like")}>♥ Like</Button></div>
         <Button type="button" onClick={() => openVideoPayment(profile)} style={{ width: "100%" }}>◉ Video Call</Button>
@@ -198,18 +210,10 @@ export function DiscoverBrowser() {
     <>
       {message && <p role="status" className="muted" style={{ textAlign: "center", marginBottom: "1rem" }}>{message}</p>}
       <div className="discover-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 260px), 360px))", justifyContent: "center", gap: "1rem", width: "100%" }}>{profiles.map(renderCard)}</div>
-
       {paymentHost && (
         <section ref={paymentRef} aria-label="Video call payment" style={{ scrollMarginTop: 72, marginTop: "2rem", padding: "1.2rem", borderRadius: 24, border: "1px solid var(--line)", background: "var(--surface)", display: "grid", gap: "1rem" }}>
           <div><span className="eyebrow">Video call payment</span><h2 className="serif" style={{ margin: ".25rem 0 0" }}>Call {paymentHost.display_name}</h2><p className="muted" style={{ margin: ".35rem 0 0" }}>Choose one complete package. The amount and coin quantity are locked by Ishqiya.</p></div>
-          <div style={{ display: "grid", gap: ".65rem" }}>
-            {GOOGLE_PLAY_PRODUCTS.map((product) => (
-              <button key={product.id} type="button" className="choice-card" disabled={processingPayment} onClick={() => void choosePackage(product.id)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", textAlign: "left" }}>
-                <span><strong>{product.coins.toLocaleString()} coins</strong><span className="muted" style={{ display: "block", marginTop: ".2rem" }}>₹{product.coins.toLocaleString()} package</span></span>
-                <span>{processingPayment ? "Opening payment…" : "Pay now →"}</span>
-              </button>
-            ))}
-          </div>
+          <div style={{ display: "grid", gap: ".65rem" }}>{GOOGLE_PLAY_PRODUCTS.map((product) => <button key={product.id} type="button" className="choice-card" disabled={processingPayment} onClick={() => void choosePackage(product.id)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", textAlign: "left" }}><span><strong>{product.coins.toLocaleString()} coins</strong><span className="muted" style={{ display: "block", marginTop: ".2rem" }}>₹{product.coins.toLocaleString()} package</span></span><span>{processingPayment ? "Opening payment…" : "Pay now →"}</span></button>)}</div>
           <p className="muted" style={{ fontSize: ".82rem" }}>Android: Google Play Billing. Browser: secure Razorpay Checkout. Video request is created only after the server verifies payment.</p>
         </section>
       )}
