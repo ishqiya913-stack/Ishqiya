@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Button, Input, Loading } from "@/components/ui";
 
-type Package = { id: string; coins: number; price_paise: number };
+type Package = { id: string; coins: number; price_rupees: number };
 export function WalletPanel() {
   const [balance, setBalance] = useState(0);
   const [packages, setPackages] = useState<Package[]>([]);
@@ -11,5 +11,5 @@ export function WalletPanel() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   useEffect(() => { fetch("/api/wallet").then(async (response) => { const result = await response.json() as { balance?: number; packages?: Package[];  error?: string }; if (!response.ok) setMessage(result.error || "Wallet unavailable."); else { setBalance(result.balance || 0); setPackages(result.packages || []);  } setLoading(false); }); }, []);
-  return <div className="wallet-panel"><div className="choice-card"><span className="eyebrow">Available coins</span><strong>{balance.toLocaleString()}</strong><p className="muted">Coin balance changes only after a verified ledger transaction.</p></div><div className="choice-grid">{packages.map((item) => <button className="choice-card" type="button" key={item.id} onClick={() => setSelected(item)} aria-pressed={selected?.id === item.id}><strong>{item.coins.toLocaleString()} coins</strong><p>₹{(item.price_paise / 100).toLocaleString("en-IN")}</p></button>)}</div><div className="form-card"><p>Android purchases are completed securely through Google Play Billing. Payments are verified automatically before coins are credited.</p></div>{message && <p className="muted" role="status">{message}</p>}</div>;
+  return <div className="wallet-panel"><div className="choice-card"><span className="eyebrow">Available coins</span><strong>{balance.toLocaleString()}</strong><p className="muted">Coin balance changes only after a verified ledger transaction.</p></div><div className="choice-grid">{packages.map((item) => <button className="choice-card" type="button" key={item.id} onClick={() => setSelected(item)} aria-pressed={selected?.id === item.id}><strong>{item.coins.toLocaleString()} coins</strong><p>₹{(item.price_rupees).toLocaleString("en-IN")}</p></button>)}</div><div className="form-card"><p>Android purchases are completed securely through Google Play Billing. Payments are verified automatically before coins are credited.</p></div>{message && <p className="muted" role="status">{message}</p>}</div>;
 }

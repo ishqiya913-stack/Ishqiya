@@ -99,7 +99,7 @@ By registering as a Host on Ishqiya, I confirm that:
 10. I understand that accepting this agreement creates a digital record of my acceptance. The accepted agreement version, acceptance timestamp, and relevant technical audit information may be retained for compliance and dispute-resolution purposes.
 11. I have read and understood the Privacy Policy, Terms of Service, Community Guidelines, and Host Safety Rules.
 
-I, [FULL LEGAL NAME], confirm that all the details provided by me are true, complete and filled by me with my consent. I have read and understood the Ishqiya Host Partner Agreement and I accept it. I understand that if I violate any Ishqiya policy, guideline, safety rule or applicable law, Ishqiya has the sole right to suspend or stop my earnings, block my account, and remove me from the platform, subject to applicable law and the platform's review and appeal process.',
+I, [FULL LEGAL NAME], confirm that all the details provided by me are true, complete and filled by me with my consent. I have read and understood the Ishqiya Host Partner Agreement and I accept it. I understand that if I violate any Ishqiya policy, guideline, safety rule or applicable law, Ishqiya has the sole right to suspend or stop my earnings, block my account, and remove me from the platform, subject to applicable law and the platform''s review and appeal process.',
     true
   )
 on conflict (version) do update
