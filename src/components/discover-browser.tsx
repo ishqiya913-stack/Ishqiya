@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, EmptyState, Loading, Modal } from "@/components/ui";
-import { DEMO_HOSTS } from "@/lib/demo-hosts";
 import { GOOGLE_PLAY_PRODUCTS } from "@/components/google-play-wallet";
 
 type Profile = {
@@ -14,14 +13,7 @@ type Profile = {
   city: string | null;
   age: number | null;
   avatar_path: string | null;
-  is_demo?: boolean;
 };
-
-function withDemoHosts(realProfiles: Profile[]) {
-  const realIds = new Set(realProfiles.map((profile) => profile.host_id));
-  if (process.env.NODE_ENV === "production") return realProfiles;
-  return [...realProfiles, ...DEMO_HOSTS.filter((profile) => !realIds.has(profile.host_id))];
-}
 
 export function DiscoverBrowser() {
   const router = useRouter();
@@ -39,10 +31,10 @@ export function DiscoverBrowser() {
       const response = await fetch("/api/discover?limit=20&offset=0", { cache: "no-store" });
       const result = await response.json() as { profiles?: Profile[]; error?: string };
       if (!response.ok) setMessage(result.error || "Discovery could not be loaded.");
-      setProfiles(withDemoHosts(result.profiles || []));
+      setProfiles(result.profiles || []);
     } catch {
-      setProfiles(withDemoHosts([]));
-      setMessage("Discovery could not reach the server. Showing local preview profiles.");
+      setProfiles([]);
+      setMessage("Discovery could not reach the server.");
     } finally {
       setLoading(false);
     }
@@ -55,14 +47,6 @@ export function DiscoverBrowser() {
       if (!pendingHostId) return;
       setProcessingPayment(true);
       try {
-        const host = paymentHost;
-        if (host?.is_demo) {
-          setPaymentHost(null);
-          setPendingHostId("");
-          setMessage("Google Play test purchase verified. This preview Host is for UI testing only.");
-          return;
-        }
-
         const response = await fetch("/api/video/request", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -83,7 +67,7 @@ export function DiscoverBrowser() {
     const listener = () => void handlePurchaseComplete();
     window.addEventListener("ishqiya-purchase-complete", listener);
     return () => window.removeEventListener("ishqiya-purchase-complete", listener);
-  }, [pendingHostId, paymentHost, router]);
+  }, [pendingHostId, router]);
 
   function openVideoPayment(profile: Profile) {
     setMessage("");
@@ -91,16 +75,20 @@ export function DiscoverBrowser() {
     setPaymentHost(profile);
   }
 
-  function choosePackage(productId: string) {
-    window.dispatchEvent(new CustomEvent("ishqiya-buy-coins", { detail: { productId } }));
+  async function choosePackage(productId: string) {
+    try {
+      const { Capacitor } = await import("@capacitor/core");
+      if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "android") {
+        setMessage("Google Play payment opens only inside the Ishqiya Android app. Build/install the Android app to continue.");
+        return;
+      }
+      window.dispatchEvent(new CustomEvent("ishqiya-buy-coins", { detail: { productId } }));
+    } catch {
+      setMessage("Google Play payment is available only in the Ishqiya Android app.");
+    }
   }
 
   async function act(targetId: string, action: "like" | "pass") {
-    if (targetId.startsWith("demo-host-")) {
-      setProfiles((current) => current.filter((profile) => profile.host_id !== targetId));
-      setMessage(action === "like" ? "Like selected." : "Passed. Showing the remaining Hosts.");
-      return;
-    }
     const response = await fetch("/api/discover/action", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -158,7 +146,7 @@ export function DiscoverBrowser() {
             <p className="muted">Select one complete coin package. The package amount is fixed by Ishqiya. Google Play will handle the payment and show the final price before confirmation.</p>
             <div style={{ display: "grid", gap: ".65rem" }}>
               {GOOGLE_PLAY_PRODUCTS.map((product) => (
-                <button key={product.id} type="button" className="choice-card" disabled={processingPayment} onClick={() => choosePackage(product.id)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", textAlign: "left" }}>
+                <button key={product.id} type="button" className="choice-card" disabled={processingPayment} onClick={() => void choosePackage(product.id)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", textAlign: "left" }}>
                   <span><strong>{product.coins.toLocaleString()} coins</strong><span className="muted" style={{ display: "block", marginTop: ".2rem" }}>₹{product.coins.toLocaleString()} package</span></span>
                   <span>Pay with Google Play →</span>
                 </button>
