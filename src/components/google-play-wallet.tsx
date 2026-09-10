@@ -20,11 +20,11 @@ export const GOOGLE_PLAY_PRODUCTS: GooglePlayProduct[] = [
 export function GooglePlayWallet() {
   const [available, setAvailable] = useState(false);
   const [message, setMessage] = useState("");
-  const initialized = useRef(false);
+  const buyProductRef = useRef<((productId: string) => Promise<void>) | null>(null);
+  const queuedProductRef = useRef<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
-    let buyProduct: ((productId: string) => Promise<void>) | null = null;
 
     async function setup() {
       try {
@@ -41,12 +41,12 @@ export function GooglePlayWallet() {
           if (!product) throw new Error("This Google Play product is not available.");
           const offer = product.getOffer();
           if (!offer) throw new Error("This product is temporarily unavailable.");
-          setMessage("Opening Google Play…");
+          if (mounted) setMessage("Opening Google Play…");
           const error = await offer.order();
-          if (error) setMessage(error.message || "Purchase could not be started.");
+          if (error) throw new Error(error.message || "Purchase could not be started.");
         }
 
-        buyProduct = buy;
+        buyProductRef.current = buy;
 
         store.when().approved(async (transaction: any) => {
           try {
@@ -84,30 +84,46 @@ export function GooglePlayWallet() {
         });
 
         await store.initialize();
-        if (mounted) {
-          initialized.current = true;
-          setAvailable(true);
+        if (!mounted) return;
+        setAvailable(true);
+
+        const queuedProduct = queuedProductRef.current;
+        queuedProductRef.current = null;
+        if (queuedProduct) {
+          try {
+            await buy(queuedProduct);
+          } catch (error) {
+            setMessage(error instanceof Error ? error.message : "Google Play purchase failed.");
+          }
         }
       } catch (error) {
         console.error("Google Play billing unavailable:", error);
+        if (mounted) setMessage("Google Play billing could not be initialized on this Android device.");
       }
     }
 
     function handlePurchase(event: Event) {
       const productId = (event as CustomEvent<{ productId?: string }>).detail?.productId;
-      if (!productId || !buyProduct) return;
-      void buyProduct(productId).catch((error) => setMessage(error instanceof Error ? error.message : "Google Play purchase failed."));
+      if (!productId) return;
+      if (buyProductRef.current) {
+        void buyProductRef.current(productId).catch((error) => setMessage(error instanceof Error ? error.message : "Google Play purchase failed."));
+      } else {
+        queuedProductRef.current = productId;
+        setMessage("Preparing Google Play…");
+      }
     }
 
     window.addEventListener("ishqiya-buy-coins", handlePurchase);
     void setup();
     return () => {
       mounted = false;
+      buyProductRef.current = null;
+      queuedProductRef.current = null;
       window.removeEventListener("ishqiya-buy-coins", handlePurchase);
     };
   }, []);
 
-  if (!available || !initialized.current) return null;
+  if (!available) return null;
 
   return (
     <div className="choice-card">
