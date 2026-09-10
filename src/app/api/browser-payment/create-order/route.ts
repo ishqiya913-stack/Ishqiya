@@ -27,27 +27,12 @@ export async function POST(request: Request) {
   const { data: packageRow, error: packageError } = await admin
     .from("coin_packages")
     .select("id, coins, price_rupees, is_active")
-    .eq("id", productId)
+    .eq("coins", expectedCoins)
+    .eq("is_active", true)
     .maybeSingle();
 
-  let coins = expectedCoins;
-  let amountRupees = expectedCoins;
-  let packageId: string | null = null;
-
-  if (packageError) return NextResponse.json({ error: "Payment package lookup failed." }, { status: 500 });
-  if (packageRow) {
-    if (!packageRow.is_active || packageRow.coins !== expectedCoins || packageRow.price_rupees !== expectedCoins) {
-      return NextResponse.json({ error: "This package is unavailable." }, { status: 400 });
-    }
-    coins = packageRow.coins;
-    amountRupees = packageRow.price_rupees;
-    packageId = packageRow.id;
-  } else {
-    const { data: byCoins, error } = await admin.from("coin_packages").select("id, coins, price_rupees, is_active").eq("coins", expectedCoins).eq("is_active", true).maybeSingle();
-    if (error || !byCoins || byCoins.price_rupees !== expectedCoins) return NextResponse.json({ error: "This package is unavailable." }, { status: 400 });
-    packageId = byCoins.id;
-    coins = byCoins.coins;
-    amountRupees = byCoins.price_rupees;
+  if (packageError || !packageRow || packageRow.price_rupees !== expectedCoins) {
+    return NextResponse.json({ error: "This package is unavailable." }, { status: 400 });
   }
 
   const receipt = `ishqiya_${user.id.slice(0, 8)}_${Date.now()}`;
@@ -56,10 +41,10 @@ export async function POST(request: Request) {
     method: "POST",
     headers: { Authorization: `Basic ${auth}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      amount: amountRupees * 100,
+      amount: packageRow.price_rupees * 100,
       currency: "INR",
       receipt,
-      notes: { ishqiya_user_id: user.id, package_id: packageId, coins: String(coins) },
+      notes: { ishqiya_user_id: user.id, package_id: packageRow.id, coins: String(packageRow.coins) },
     }),
   });
   const razorOrder = await razorResponse.json().catch(() => null) as { id?: string; error?: { description?: string } } | null;
@@ -67,9 +52,9 @@ export async function POST(request: Request) {
 
   const { error: insertError } = await admin.from("browser_payment_orders").insert({
     user_id: user.id,
-    package_id: packageId,
-    coins,
-    amount_rupees: amountRupees,
+    package_id: packageRow.id,
+    coins: packageRow.coins,
+    amount_rupees: packageRow.price_rupees,
     razorpay_order_id: razorOrder.id,
   });
   if (insertError) return NextResponse.json({ error: "Payment order could not be recorded." }, { status: 500 });
@@ -77,9 +62,9 @@ export async function POST(request: Request) {
   return NextResponse.json({
     keyId,
     orderId: razorOrder.id,
-    amount: amountRupees * 100,
+    amount: packageRow.price_rupees * 100,
     currency: "INR",
-    coins,
-    amountRupees,
+    coins: packageRow.coins,
+    amountRupees: packageRow.price_rupees,
   });
 }
