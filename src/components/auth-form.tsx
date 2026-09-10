@@ -40,49 +40,25 @@ export function AuthScreen({ mode, action }: { mode: Mode; action: Action }) {
     });
   }
 
-  useEffect(() => {
-    return () => photoPreviews.forEach((preview) => preview && URL.revokeObjectURL(preview));
-  }, [photoPreviews]);
+  useEffect(() => () => photoPreviews.forEach((preview) => preview && URL.revokeObjectURL(preview)), [photoPreviews]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage("");
-
-    if (!email.trim() || !password) {
-      setMessage("Email and password are required.");
-      return;
-    }
-    if (isSignUp && password !== confirmPassword) {
-      setMessage("Passwords do not match.");
-      return;
-    }
+    if (!email.trim() || !password) return setMessage("Email and password are required.");
+    if (isSignUp && password !== confirmPassword) return setMessage("Passwords do not match.");
 
     if (isSignUp && mode === "host") {
-      if (!detailsComplete) {
-        setMessage("Please complete your legal name, date of birth and contact number first.");
-        return;
-      }
+      if (!detailsComplete) return setMessage("Please complete your Host details first.");
       const dob = new Date(`${dateOfBirth}T00:00:00`);
-      if (Number.isNaN(dob.getTime())) {
-        setMessage("Please enter a valid date of birth.");
-        return;
-      }
+      if (Number.isNaN(dob.getTime())) return setMessage("Please enter a valid date of birth.");
       const today = new Date();
       let age = today.getFullYear() - dob.getFullYear();
       const monthDiff = today.getMonth() - dob.getMonth();
       if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) age--;
-      if (age < 18) {
-        setMessage("You must be 18 or older to register as a Host.");
-        return;
-      }
-      if (photoFiles.some((file) => !file)) {
-        setMessage("All 3 required Host photos must be uploaded.");
-        return;
-      }
-      if (!agreementAccepted) {
-        setMessage("You must accept the Ishqiya Host Agreement.");
-        return;
-      }
+      if (age < 18) return setMessage("You must be 18 or older to register as a Host.");
+      if (photoFiles.some((file) => !file)) return setMessage("All 3 required Host photos must be uploaded.");
+      if (!agreementAccepted) return setMessage("You must accept the Ishqiya Host Agreement.");
     }
 
     setLoading(true);
@@ -91,7 +67,6 @@ export function AuthScreen({ mode, action }: { mode: Mode; action: Action }) {
         const signupData = new FormData();
         signupData.set("email", email.trim().toLowerCase());
         signupData.set("password", password);
-
         if (mode === "host") {
           signupData.set("legal_name", legalName.trim());
           signupData.set("phone", phone.trim());
@@ -100,11 +75,9 @@ export function AuthScreen({ mode, action }: { mode: Mode; action: Action }) {
           signupData.set("agreement_version", "1.0");
           photoFiles.forEach((file, index) => file && signupData.set(`photo-${index + 1}`, file));
         }
-
         const response = await fetch(`/api/auth/${mode}/sign-up`, { method: "POST", body: signupData });
         const result = await response.json() as { error?: string; user?: { id: string }; session?: { access_token: string; refresh_token: string } | null };
         if (!response.ok || !result.user) throw new Error(result.error || "Account creation failed.");
-
         if (result.session) {
           const { error } = await supabase.auth.setSession(result.session);
           if (error) throw error;
@@ -112,25 +85,13 @@ export function AuthScreen({ mode, action }: { mode: Mode; action: Action }) {
           router.refresh();
           return;
         }
-
-        setMessage(mode === "host"
-          ? "Host account created. Check your email to verify your account. Your 3 photos will require verification before approval."
-          : "User account created. Check your email to verify your account.");
+        setMessage(mode === "host" ? "Host account created. Check your email to verify your account. Your 3 photos will require verification before approval." : "User account created. Check your email to verify your account.");
         return;
       }
-
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: email.trim().toLowerCase(),
-        password,
-      });
+      const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
       if (error) throw error;
       if (!data.user) throw new Error("Sign in failed.");
-
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", data.user.id)
-        .maybeSingle();
+      const { data: profile, error: profileError } = await supabase.from("profiles").select("role").eq("id", data.user.id).maybeSingle();
       if (profileError || !profile || profile.role !== mode) {
         await supabase.auth.signOut();
         throw new Error(`This account is not a ${mode} account. Use the correct Ishqiya sign-in page.`);
@@ -149,10 +110,7 @@ export function AuthScreen({ mode, action }: { mode: Mode; action: Action }) {
       <div className="auth-flow-nav"><BackControl /></div>
       <div className="auth-layout">
         <aside className="auth-aside">
-          <div className="brand">
-            <span className="brand-mark">♥</span>
-            <span style={{ color: "var(--cream)" }}>ISHQIYA</span>
-          </div>
+          <div className="brand"><span className="brand-mark">♥</span><span style={{ color: "var(--cream)" }}>ISHQIYA</span></div>
           <h1 className="serif">Every feeling deserves a beginning.</h1>
           <p>{mode === "user" ? "Enter a softer space to discover genuine connection." : "A considered space for Hosts to meet every conversation with presence."}</p>
         </aside>
@@ -161,7 +119,6 @@ export function AuthScreen({ mode, action }: { mode: Mode; action: Action }) {
           <span className="eyebrow">{mode} access</span>
           <h2>{isSignUp ? "Begin your story" : "Welcome back"}</h2>
           <p className="muted">{isSignUp ? `Create your Ishqiya ${mode} account with your email.` : "Sign in to continue to your Ishqiya space."}</p>
-
           <form onSubmit={submit}>
             <Input id="email" label="Email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
             <Input id="password" label="Password" type="password" autoComplete={isSignUp ? "new-password" : "current-password"} value={password} onChange={(e) => setPassword(e.target.value)} required />
@@ -171,19 +128,9 @@ export function AuthScreen({ mode, action }: { mode: Mode; action: Action }) {
               <>
                 <fieldset className="auth-fieldset">
                   <legend>Host details</legend>
-                  <label>
-                    <span>Full Legal Name</span>
-                    <input type="text" value={legalName} onChange={(e) => setLegalName(e.target.value)} placeholder="Enter your full legal name" autoComplete="name" required />
-                  </label>
-                  <label>
-                    <span>Date of Birth</span>
-                    <input type="date" value={dateOfBirth} onChange={(e) => setDateOfBirth(e.target.value)} required />
-                    <small>Host registration is restricted to persons aged 18 or older.</small>
-                  </label>
-                  <label>
-                    <span>Contact Number</span>
-                    <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Enter your mobile number" autoComplete="tel" required />
-                  </label>
+                  <label><span>Full Legal Name</span><input type="text" value={legalName} onChange={(e) => { setLegalName(e.target.value); setAgreementAccepted(false); }} placeholder="Enter your full legal name" autoComplete="name" required /></label>
+                  <label><span>Date of Birth</span><input type="date" value={dateOfBirth} onChange={(e) => { setDateOfBirth(e.target.value); setAgreementAccepted(false); }} required /><small>Host registration is restricted to persons aged 18 or older.</small></label>
+                  <label><span>Contact Number</span><input type="tel" value={phone} onChange={(e) => { setPhone(e.target.value); setAgreementAccepted(false); }} placeholder="Enter your mobile number" autoComplete="tel" required /></label>
                 </fieldset>
 
                 {detailsComplete && (
@@ -194,10 +141,7 @@ export function AuthScreen({ mode, action }: { mode: Mode; action: Action }) {
                       <p>I, <strong>{legalName.trim()}</strong>, confirm that all the details, information and documents submitted by me are true, complete and have been submitted by me with my own consent.</p>
                       <p>I confirm that I have read and understood the Ishqiya Host Agreement, Community Guidelines, Safety Rules and applicable policies, and I voluntarily accept them.</p>
                       <p>I understand that violations, false information, fraud, misuse or safety/community violations may result in suspension, withholding of eligible earnings, blocking or removal, subject to applicable law and Ishqiya policies.</p>
-                      <label className="host-agreement-checkbox">
-                        <input type="checkbox" checked={agreementAccepted} onChange={(e) => setAgreementAccepted(e.target.checked)} />
-                        <span>I Accept the Ishqiya Host Agreement</span>
-                      </label>
+                      <label className="host-agreement-checkbox"><input type="checkbox" checked={agreementAccepted} onChange={(e) => setAgreementAccepted(e.target.checked)} /><span>I Accept the Ishqiya Host Agreement</span></label>
                     </div>
                   </fieldset>
                 )}
@@ -222,11 +166,8 @@ export function AuthScreen({ mode, action }: { mode: Mode; action: Action }) {
             )}
 
             {message && <p role="alert" className="muted">{message}</p>}
-            <Button type="submit" disabled={loading || (isSignUp && mode === "host" && (!detailsComplete || !agreementAccepted))}>
-              {loading ? "Please wait..." : isSignUp ? "Create account" : "Sign in"}
-            </Button>
+            <Button type="submit" disabled={loading || (isSignUp && mode === "host" && (!detailsComplete || !agreementAccepted))}>{loading ? "Please wait..." : isSignUp ? "Create account" : "Sign in"}</Button>
           </form>
-
           {!isSignUp && <div className="form-footer"><a href={`/auth/${mode}/forgot-password`}>Forgot password?</a></div>}
         </section>
       </div>
