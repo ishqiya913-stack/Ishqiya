@@ -3,9 +3,10 @@ import { google } from "googleapis";
 import { requireAccount } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-const PACKAGE_NAME = process.env.GOOGLE_PLAY_PACKAGE_NAME || "com.ishqiya.app";
+const PACKAGE_NAME =
+  process.env.GOOGLE_PLAY_PACKAGE_NAME || "com.ishqiya.app";
 
-const PRODUCT_COINS: Record<string, number> = {
+const COIN_PACKAGES: Record<string, number> = {
   coins_100: 100,
   coins_500: 500,
   coins_1000: 1000,
@@ -15,15 +16,17 @@ const PRODUCT_COINS: Record<string, number> = {
   coins_100000: 100000,
 };
 
-function getGoogleAuth() {
+function getGooglePlayAuth() {
   const raw = process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON;
 
   if (!raw) {
-    throw new Error("Google Play service account is not configured");
+    throw new Error("Google Play service account is not configured.");
   }
 
+  const credentials = JSON.parse(raw);
+
   return new google.auth.GoogleAuth({
-    credentials: JSON.parse(raw),
+    credentials,
     scopes: ["https://www.googleapis.com/auth/androidpublisher"],
   });
 }
@@ -32,7 +35,7 @@ export async function POST(request: Request) {
   try {
     const { user } = await requireAccount();
 
-    const body = await request.json() as {
+    const body = (await request.json()) as {
       productId?: string;
       purchaseToken?: string;
     };
@@ -40,108 +43,115 @@ export async function POST(request: Request) {
     const productId = body.productId?.trim();
     const purchaseToken = body.purchaseToken?.trim();
 
-    if (!productId || !purchaseToken) {
+    if (
+      !productId ||
+      !purchaseToken ||
+      !Object.prototype.hasOwnProperty.call(COIN_PACKAGES, productId)
+    ) {
       return NextResponse.json(
-        { error: "Product ID and purchase token are required." },
+        { error: "Invalid Google Play purchase." },
         { status: 400 }
       );
     }
 
-    const coins = PRODUCT_COINS[productId];
+    const coins = COIN_PACKAGES[productId];
 
-    if (!coins) {
+    if (!Number.isInteger(coins) || coins <= 0) {
       return NextResponse.json(
-        { error: "Unknown Google Play product." },
+        { error: "Invalid product." },
         { status: 400 }
       );
     }
 
-    const auth = getGoogleAuth();
+    const auth = getGooglePlayAuth();
 
     const publisher = google.androidpublisher({
       version: "v3",
       auth,
     });
 
-    const purchase = await publisher.purchases.products.get({
+    const result = await publisher.purchases.products.get({
       packageName: PACKAGE_NAME,
       productId,
       token: purchaseToken,
     });
 
-    const data = purchase.data;
+    const purchase = result.data;
 
-    if (data.purchaseState !== 0) {
-      const state =
-        data.purchaseState === 2
-          ? "pending"
-          : data.purchaseState === 1
-            ? "canceled"
-            : "error";
-
+    // Google Play purchaseState:
+    // 0 = purchased
+    // 1 = canceled
+    // 2 = pending
+    if (purchase.purchaseState !== 0) {
       return NextResponse.json(
-        {
-          error:
-            state === "pending"
-              ? "Payment is still pending."
-              : "Google Play purchase was not completed.",
-          state,
-        },
+        { error: "Google Play purchase is not completed." },
         { status: 409 }
-      );
-    }
-
-    if (data.packageName && data.packageName !== PACKAGE_NAME) {
-      return NextResponse.json(
-        { error: "Invalid application package." },
-        { status: 400 }
-      );
-    }
-
-    if (data.productId && data.productId !== productId) {
-      return NextResponse.json(
-        { error: "Product verification failed." },
-        { status: 400 }
       );
     }
 
     const admin = createAdminClient();
 
-    const { data: result, error } = await admin.rpc(
+    const rawPurchase = {
+      purchaseState: purchase.purchaseState ?? null,
+      consumptionState: purchase.consumptionState ?? null,
+      orderId: purchase.orderId ?? null,
+      purchaseTimeMillis: purchase.purchaseTimeMillis ?? null,
+      productId,
+      packageName: PACKAGE_NAME,
+    };
+
+    const { data: balance, error: creditError } = await admin.rpc(
       "ishqiya_process_google_play_purchase",
       {
         p_user_id: user.id,
         p_product_id: productId,
         p_purchase_token: purchaseToken,
-        p_order_id: data.orderId ?? null,
+        p_order_id: purchase.orderId ?? null,
         p_package_name: PACKAGE_NAME,
-        p_purchase_time: data.purchaseTimeMillis
-          ? new Date(Number(data.purchaseTimeMillis)).toISOString()
+        p_purchase_time: purchase.purchaseTimeMillis
+          ? new Date(Number(purchase.purchaseTimeMillis)).toISOString()
           : null,
-        p_raw_purchase: data,
+        p_raw_purchase: rawPurchase,
         p_coins: coins,
       }
     );
 
-    if (error) {
-      console.error("Google Play wallet credit failed:", error);
+    if (creditError) {
+      console.error(
+        "Google Play purchase processing failed:",
+        creditError.message
+      );
+
       return NextResponse.json(
-        { error: "Purchase verification could not be completed." },
+        { error: "Purchase could not be credited." },
         { status: 500 }
       );
     }
 
-    if (data.consumptionState !== 1) {
-      await publisher.purchases.products.consume({
-        packageName: PACKAGE_NAME,
-        productId,
-        token: purchaseToken,
-      });
+    // Consumable products must be consumed so they can be purchased again.
+    if (purchase.consumptionState !== 1) {
+      try {
+        await publisher.purchases.products.consume({
+          packageName: PACKAGE_NAME,
+          productId,
+          token: purchaseToken,
+        });
+      } catch (consumeError) {
+        // Coins have already been credited idempotently.
+        // Reconciliation can retry consumption later.
+        console.error(
+          "Google Play consumption pending:",
+          consumeError instanceof Error
+            ? consumeError.message
+            : "Unknown consumption error"
+        );
+      }
     }
 
     await admin
       .from("google_play_purchases")
       .update({
+        purchase_state: "purchased",
         consumption_state: "consumed",
         consumed_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -149,12 +159,15 @@ export async function POST(request: Request) {
       .eq("purchase_token", purchaseToken);
 
     return NextResponse.json({
-      verified: true,
+      success: true,
       coins,
-      balance: result,
+      balance,
     });
   } catch (error) {
-    console.error("Google Play purchase error:", error);
+    console.error(
+      "Google Play purchase request failed:",
+      error instanceof Error ? error.message : "Unknown error"
+    );
 
     return NextResponse.json(
       { error: "Google Play purchase verification failed." },
