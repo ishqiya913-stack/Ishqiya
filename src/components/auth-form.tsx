@@ -9,6 +9,19 @@ import { Button, Input } from "@/components/ui";
 type Mode = "user" | "host";
 type Action = "sign in" | "sign up";
 
+const sectionStyle: React.CSSProperties = {
+  border: "1px solid var(--line)",
+  borderRadius: 18,
+  padding: "1.15rem",
+  margin: 0,
+  display: "grid",
+  gap: "1rem",
+};
+
+const fieldStyle: React.CSSProperties = { display: "grid", gap: ".45rem", minWidth: 0 };
+const labelStyle: React.CSSProperties = { fontSize: ".82rem", fontWeight: 800, color: "var(--cream)" };
+const inputStyle: React.CSSProperties = { width: "100%", minHeight: 48, borderRadius: 12, border: "1px solid var(--line)", background: "var(--surface-raised)", color: "var(--cream)", padding: ".75rem .85rem" };
+
 export function AuthScreen({ mode, action }: { mode: Mode; action: Action }) {
   const router = useRouter();
   const supabase = createClient();
@@ -120,45 +133,45 @@ export function AuthScreen({ mode, action }: { mode: Mode; action: Action }) {
             {isSignUp && <Input id="confirm-password" label="Confirm Password" type="password" autoComplete="new-password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required />}
 
             {isSignUp && mode === "host" && (
-              <div className="host-signup-sections">
-                <fieldset className="auth-fieldset">
-                  <legend>Host details</legend>
-                  <p className="muted">These details are used for account verification and payout compliance.</p>
-                  <div className="host-details-grid">
-                    <div className="field"><label htmlFor="legal-name">Full legal name</label><input id="legal-name" type="text" value={legalName} onChange={(e) => { setLegalName(e.target.value); setAgreementAccepted(false); }} placeholder="Enter your full legal name" autoComplete="name" required /></div>
-                    <div className="field"><label htmlFor="date-of-birth">Date of birth</label><input id="date-of-birth" type="date" value={dateOfBirth} onChange={(e) => { setDateOfBirth(e.target.value); setAgreementAccepted(false); }} required /><small>Hosts must be 18 or older.</small></div>
-                    <div className="field host-phone-field"><label htmlFor="contact-number">Contact number</label><input id="contact-number" type="tel" value={phone} onChange={(e) => { setPhone(e.target.value); setAgreementAccepted(false); }} placeholder="Enter your mobile number" autoComplete="tel" required /></div>
+              <div style={{ display: "grid", gap: "1rem" }}>
+                <fieldset style={sectionStyle}>
+                  <legend style={{ padding: "0 .45rem", fontWeight: 800 }}>Host details</legend>
+                  <p className="muted" style={{ margin: 0 }}>Enter your legal details exactly as they appear on your verification records.</p>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "1rem" }}>
+                    <div style={fieldStyle}><label htmlFor="legal-name" style={labelStyle}>Full legal name</label><input id="legal-name" style={inputStyle} type="text" value={legalName} onChange={(e) => { setLegalName(e.target.value); setAgreementAccepted(false); }} placeholder="Your full legal name" autoComplete="name" required /></div>
+                    <div style={fieldStyle}><label htmlFor="date-of-birth" style={labelStyle}>Date of birth</label><input id="date-of-birth" style={inputStyle} type="date" value={dateOfBirth} onChange={(e) => { setDateOfBirth(e.target.value); setAgreementAccepted(false); }} required /><small className="muted">Hosts must be 18 or older.</small></div>
+                    <div style={fieldStyle}><label htmlFor="contact-number" style={labelStyle}>Contact number</label><input id="contact-number" style={inputStyle} type="tel" value={phone} onChange={(e) => { setPhone(e.target.value); setAgreementAccepted(false); }} placeholder="Your mobile number" autoComplete="tel" required /></div>
                   </div>
                 </fieldset>
 
                 {detailsComplete && (
-                  <fieldset className="auth-fieldset">
-                    <legend>Host Agreement &amp; Consent</legend>
-                    <div className="host-agreement-box">
-                      <h3>Ishqiya Host Partner Agreement</h3>
-                      <p>I, <strong>{legalName.trim()}</strong>, confirm that all the details, information and documents submitted by me are true, complete and have been submitted by me with my own consent.</p>
-                      <p>I confirm that I have read and understood the Ishqiya Host Agreement, Community Guidelines, Safety Rules and applicable policies, and I voluntarily accept them.</p>
-                      <p>I understand that violations, false information, fraud, misuse or safety/community violations may result in suspension, withholding of eligible earnings, blocking or removal, subject to applicable law and Ishqiya policies.</p>
-                      <label className="host-agreement-checkbox"><input type="checkbox" checked={agreementAccepted} onChange={(e) => setAgreementAccepted(e.target.checked)} /><span>I Accept the Ishqiya Host Agreement</span></label>
+                  <fieldset style={sectionStyle}>
+                    <legend style={{ padding: "0 .45rem", fontWeight: 800 }}>Host Agreement &amp; Consent</legend>
+                    <div style={{ background: "var(--surface-raised)", border: "1px solid var(--line)", borderRadius: 14, padding: "1rem", lineHeight: 1.65 }}>
+                      <h3 style={{ margin: "0 0 .65rem", fontSize: "1rem" }}>Ishqiya Host Partner Agreement</h3>
+                      <p style={{ margin: "0 0 .7rem", color: "var(--muted)" }}>I, <strong style={{ color: "var(--cream)" }}>{legalName.trim()}</strong>, confirm that the information and documents submitted by me are true, complete and submitted with my own consent.</p>
+                      <p style={{ margin: "0 0 .7rem", color: "var(--muted)" }}>I have read and understood the Ishqiya Host Agreement, Privacy Policy, Terms of Service, Community Guidelines and Host Safety Rules, and voluntarily agree to them.</p>
+                      <p style={{ margin: 0, color: "var(--muted)" }}>I understand that false information, fraud, misuse or policy/safety violations may result in suspension, withholding of eligible earnings, blocking or removal, subject to applicable law.</p>
                     </div>
+                    <label style={{ display: "flex", alignItems: "flex-start", gap: ".65rem", cursor: "pointer", lineHeight: 1.45 }}><input type="checkbox" checked={agreementAccepted} onChange={(e) => setAgreementAccepted(e.target.checked)} style={{ marginTop: ".2rem", width: 18, height: 18, flex: "0 0 auto" }} /><span>I accept the Ishqiya Host Agreement and related policies.</span></label>
                   </fieldset>
                 )}
 
-                <fieldset className="auth-fieldset">
-                  <legend>Verification photos</legend>
-                  <p className="muted">Upload 3 real, front-facing full-body photos of yourself, each in different attire. AI-generated, replaced, heavily edited or misleading photos are not accepted.</p>
-                  <div className="host-photo-grid">
+                <fieldset style={sectionStyle}>
+                  <legend style={{ padding: "0 .45rem", fontWeight: 800 }}>Verification photos</legend>
+                  <p className="muted" style={{ margin: 0, lineHeight: 1.55 }}>Upload 3 real, front-facing full-body photos of yourself, each in different attire. AI-generated, replaced, heavily edited or misleading photos are not accepted.</p>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: ".8rem" }}>
                     {[0, 1, 2].map((index) => (
-                      <div className="photo-upload-card" key={index}>
+                      <div key={index} style={{ minWidth: 0 }}>
                         <input className="photo-file-input" id={`host-photo-${index + 1}`} type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => updatePhoto(index, e.target.files?.[0] ?? null)} required={!photoFiles[index]} />
-                        <label htmlFor={`host-photo-${index + 1}`} className="photo-placeholder">
-                          {photoPreviews[index] ? <img src={photoPreviews[index]!} alt={`Photo ${index + 1} preview`} className="photo-preview-image" /> : <div className="photo-placeholder-content"><span className="photo-plus">+</span><strong>Photo {index + 1}</strong><span>Add your photo</span></div>}
+                        <label htmlFor={`host-photo-${index + 1}`} className="photo-placeholder" style={{ minHeight: 210, width: "100%", borderRadius: 14, overflow: "hidden", cursor: "pointer" }}>
+                          {photoPreviews[index] ? <img src={photoPreviews[index]!} alt={`Photo ${index + 1} preview`} className="photo-preview-image" style={{ width: "100%", height: "100%", minHeight: 210, objectFit: "cover" }} /> : <div className="photo-placeholder-content"><span className="photo-plus">+</span><strong>Photo {index + 1}</strong><span>Add photo</span></div>}
                         </label>
-                        {photoFiles[index] && <button type="button" className="photo-remove-button" onClick={() => updatePhoto(index, null)}>Remove photo</button>}
+                        {photoFiles[index] && <button type="button" className="photo-remove-button" onClick={() => updatePhoto(index, null)} style={{ marginTop: ".45rem" }}>Remove</button>}
                       </div>
                     ))}
                   </div>
-                  <p className="photo-verification-note">Photos are collected for verification. Final approval requires verification review.</p>
+                  <p className="muted" style={{ margin: 0, fontSize: ".8rem" }}>Final Host approval requires verification review.</p>
                 </fieldset>
               </div>
             )}
