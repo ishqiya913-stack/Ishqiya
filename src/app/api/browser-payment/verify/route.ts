@@ -5,11 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function POST(request: Request) {
   const { user } = await requireRole("user");
-  const body = await request.json().catch(() => null) as {
-    orderId?: string;
-    paymentId?: string;
-    signature?: string;
-  } | null;
+  const body = await request.json().catch(() => null) as { orderId?: string; paymentId?: string; signature?: string } | null;
   const orderId = typeof body?.orderId === "string" ? body.orderId : "";
   const paymentId = typeof body?.paymentId === "string" ? body.paymentId : "";
   const signature = typeof body?.signature === "string" ? body.signature : "";
@@ -17,7 +13,11 @@ export async function POST(request: Request) {
   if (!orderId || !paymentId || !signature || !secret) return NextResponse.json({ error: "Invalid payment confirmation." }, { status: 400 });
 
   const expected = crypto.createHmac("sha256", secret).update(`${orderId}|${paymentId}`).digest("hex");
-  if (!crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature))) return NextResponse.json({ error: "Payment signature verification failed." }, { status: 400 });
+  const expectedBuffer = Buffer.from(expected, "utf8");
+  const signatureBuffer = Buffer.from(signature, "utf8");
+  if (expectedBuffer.length !== signatureBuffer.length || !crypto.timingSafeEqual(expectedBuffer, signatureBuffer)) {
+    return NextResponse.json({ error: "Payment signature verification failed." }, { status: 400 });
+  }
 
   const admin = createAdminClient();
   const { data: order, error: orderError } = await admin.from("browser_payment_orders").select("id, user_id, coins, amount_rupees, razorpay_order_id, status").eq("razorpay_order_id", orderId).eq("user_id", user.id).maybeSingle();
