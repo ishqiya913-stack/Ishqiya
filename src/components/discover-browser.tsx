@@ -7,6 +7,12 @@ import { DEMO_HOSTS } from "@/lib/demo-hosts";
 
 type Profile = { host_id: string; display_name: string; headline: string | null; bio: string | null; city: string | null; age: number | null; avatar_path: string | null; is_demo?: boolean };
 
+function withDemoHosts(realProfiles: Profile[]) {
+  const realIds = new Set(realProfiles.map((profile) => profile.host_id));
+  const demos = DEMO_HOSTS.filter((profile) => !realIds.has(profile.host_id));
+  return [...realProfiles, ...demos];
+}
+
 export function DiscoverBrowser() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [view, setView] = useState<"cards" | "grid">("cards");
@@ -24,7 +30,7 @@ export function DiscoverBrowser() {
       const response = await fetch("/api/discover?limit=20&offset=0");
       const result = await response.json() as { profiles?: Profile[]; error?: string };
       if (!response.ok) setMessage(result.error || "Discovery could not be loaded.");
-      setProfiles(result.profiles?.length ? result.profiles : DEMO_HOSTS);
+      setProfiles(withDemoHosts(result.profiles || []));
     } catch {
       setProfiles(DEMO_HOSTS);
       setMessage("Preview mode: showing fictional demo profiles.");
@@ -36,7 +42,7 @@ export function DiscoverBrowser() {
   useEffect(() => { void load(); }, []);
 
   async function blockHost(targetId: string) {
-    if (targetId.startsWith("demo-host-")) { setProfiles((current) => current.slice(1)); return; }
+    if (targetId.startsWith("demo-host-")) { setProfiles((current) => current.filter((profile) => profile.host_id !== targetId)); return; }
     if (!window.confirm("Block this Host? They will no longer appear to you.")) return;
     setBlockingId(targetId);
     const response = await fetch("/api/blocks", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ blockedId: targetId }) });
