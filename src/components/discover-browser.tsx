@@ -52,9 +52,17 @@ export function DiscoverBrowser() {
 
   useEffect(() => {
     async function handlePurchaseComplete() {
-      if (!pendingHostId || paymentHost?.is_demo) return;
+      if (!pendingHostId) return;
       setProcessingPayment(true);
       try {
+        const host = paymentHost;
+        if (host?.is_demo) {
+          setPaymentHost(null);
+          setPendingHostId("");
+          setMessage("Google Play test purchase verified. This preview Host is for UI testing only.");
+          return;
+        }
+
         const response = await fetch("/api/video/request", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -146,25 +154,18 @@ export function DiscoverBrowser() {
 
       {paymentHost && (
         <Modal title={`Video call with ${paymentHost.display_name}`} onClose={() => { if (!processingPayment) { setPaymentHost(null); setPendingHostId(""); } }}>
-          {paymentHost.is_demo ? (
-            <div style={{ display: "grid", gap: "1rem" }}>
-              <p className="muted">This local preview profile is not a real Host account, so a real person cannot join its call.</p>
-              <Button type="button" variant="quiet" onClick={() => { setPaymentHost(null); setPendingHostId(""); }}>Close</Button>
+          <div style={{ display: "grid", gap: "1rem" }}>
+            <p className="muted">Select one complete coin package. The package amount is fixed by Ishqiya. Google Play will handle the payment and show the final price before confirmation.</p>
+            <div style={{ display: "grid", gap: ".65rem" }}>
+              {GOOGLE_PLAY_PRODUCTS.map((product) => (
+                <button key={product.id} type="button" className="choice-card" disabled={processingPayment} onClick={() => choosePackage(product.id)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", textAlign: "left" }}>
+                  <span><strong>{product.coins.toLocaleString()} coins</strong><span className="muted" style={{ display: "block", marginTop: ".2rem" }}>₹{product.coins.toLocaleString()} package</span></span>
+                  <span>Pay with Google Play →</span>
+                </button>
+              ))}
             </div>
-          ) : (
-            <div style={{ display: "grid", gap: "1rem" }}>
-              <p className="muted">Choose one complete coin package. Ishqiya does not accept partial package payments. Google Play will show the final Play price before you confirm.</p>
-              <div style={{ display: "grid", gap: ".65rem" }}>
-                {GOOGLE_PLAY_PRODUCTS.map((product) => (
-                  <button key={product.id} type="button" className="choice-card" disabled={processingPayment} onClick={() => choosePackage(product.id)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", textAlign: "left" }}>
-                    <span><strong>{product.coins.toLocaleString()} coins</strong><span className="muted" style={{ display: "block", marginTop: ".2rem" }}>₹{product.coins.toLocaleString()} package</span></span>
-                    <span>Pay with Google Play →</span>
-                  </button>
-                ))}
-              </div>
-              <p className="muted" style={{ fontSize: ".8rem" }}>Calling is unlocked only after the purchase is verified by Ishqiya's secure backend.</p>
-            </div>
-          )}
+            <p className="muted" style={{ fontSize: ".8rem" }}>Video calling is unlocked only after Ishqiya verifies the Google Play purchase on the server.</p>
+          </div>
         </Modal>
       )}
     </>
