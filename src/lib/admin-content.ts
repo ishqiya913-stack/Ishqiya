@@ -16,9 +16,18 @@ export const DEFAULT_SITE_CONTENT = {
 } as const;
 
 export async function getSiteContent() {
-  const admin = createAdminClient();
-  const { data } = await admin.from("site_settings").select("key,value");
-  const result: Record<string, string> = { ...DEFAULT_SITE_CONTENT };
-  for (const row of data || []) result[row.key] = String(row.value ?? "");
-  return result;
+  // Never use the service-role client during static prerender/build.
+  // The homepage must remain build-safe when Supabase runtime secrets
+  // are unavailable to the Next.js build worker.
+  if (typeof window !== "undefined") return { ...DEFAULT_SITE_CONTENT };
+
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin.from("site_settings").select("key,value");
+    const result: Record<string, string> = { ...DEFAULT_SITE_CONTENT };
+    for (const row of data || []) result[row.key] = String(row.value ?? "");
+    return result;
+  } catch {
+    return { ...DEFAULT_SITE_CONTENT };
+  }
 }
