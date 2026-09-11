@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { BackControl } from "@/components/navigation";
@@ -24,7 +24,8 @@ const inputStyle: React.CSSProperties = { width: "100%", minHeight: 48, borderRa
 
 export function AuthScreen({ mode, action }: { mode: Mode; action: Action }) {
   const router = useRouter();
-  const supabase = createClient();
+  const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
+  const getSupabase = () => (supabaseRef.current ??= createClient());
   const isSignUp = action === "sign up";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -88,7 +89,7 @@ export function AuthScreen({ mode, action }: { mode: Mode; action: Action }) {
         const result = await response.json() as { error?: string; user?: { id: string }; session?: { access_token: string; refresh_token: string } | null };
         if (!response.ok || !result.user) throw new Error(result.error || "Account creation failed.");
         if (result.session) {
-          const { error } = await supabase.auth.setSession(result.session);
+          const { error } = await getSupabase().auth.setSession(result.session);
           if (error) throw error;
           router.push(mode === "host" ? "/host/profile" : "/user/discover");
           router.refresh();
@@ -97,12 +98,12 @@ export function AuthScreen({ mode, action }: { mode: Mode; action: Action }) {
         setMessage(mode === "host" ? "Host account created. Check your email to verify your account. Your 3 photos will require verification before approval." : "User account created. Check your email to verify your account.");
         return;
       }
-      const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
+      const { data, error } = await getSupabase().auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
       if (error) throw error;
       if (!data.user) throw new Error("Sign in failed.");
-      const { data: profile, error: profileError } = await supabase.from("profiles").select("role").eq("id", data.user.id).maybeSingle();
+      const { data: profile, error: profileError } = await getSupabase().from("profiles").select("role").eq("id", data.user.id).maybeSingle();
       if (profileError || !profile || profile.role !== mode) {
-        await supabase.auth.signOut();
+        await getSupabase().auth.signOut();
         throw new Error(`This account is not a ${mode} account. Use the correct Ishqiya sign-in page.`);
       }
       router.push(mode === "host" ? "/host/chat" : "/user/discover");
