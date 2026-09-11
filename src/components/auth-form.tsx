@@ -165,6 +165,7 @@ export function AuthScreen({ mode, action }: { mode: Mode; action: Action }) {
                       <div key={index} style={{ minWidth: 0 }}>
                         <input className="photo-file-input" id={`host-photo-${index + 1}`} type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => updatePhoto(index, e.target.files?.[0] ?? null)} required={!photoFiles[index]} />
                         <label htmlFor={`host-photo-${index + 1}`} className="photo-placeholder" style={{ minHeight: 210, width: "100%", borderRadius: 14, overflow: "hidden", cursor: "pointer" }}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- existing remote auth illustration */}
                           {photoPreviews[index] ? <img src={photoPreviews[index]!} alt={`Photo ${index + 1} preview`} className="photo-preview-image" style={{ width: "100%", height: "100%", minHeight: 210, objectFit: "cover" }} /> : <div className="photo-placeholder-content"><span className="photo-plus">+</span><strong>Photo {index + 1}</strong><span>Add photo</span></div>}
                         </label>
                         {photoFiles[index] && <button type="button" className="photo-remove-button" onClick={() => updatePhoto(index, null)} style={{ marginTop: ".45rem" }}>Remove</button>}

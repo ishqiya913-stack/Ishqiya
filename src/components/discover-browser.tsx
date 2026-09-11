@@ -1,3 +1,5 @@
+/* eslint-disable react-hooks/set-state-in-effect */
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -23,30 +25,6 @@ function withDemoHosts(realProfiles: Profile[]) {
   return [...realProfiles, ...DEMO_HOSTS.filter((profile) => !realIds.has(profile.host_id))];
 }
 
-declare global {
-  interface Window {
-    Razorpay?: new (options: Record<string, unknown>) => { open: () => void };
-  }
-}
-
-function loadRazorpay(): Promise<boolean> {
-  return new Promise((resolve) => {
-    if (window.Razorpay) return resolve(true);
-    const existing = document.querySelector<HTMLScriptElement>('script[data-ishqiya-razorpay="true"]');
-    if (existing) {
-      existing.addEventListener("load", () => resolve(Boolean(window.Razorpay)), { once: true });
-      existing.addEventListener("error", () => resolve(false), { once: true });
-      return;
-    }
-    const script = document.createElement("script");
-    script.src = "https://checkout.razorpay.com/v1/checkout.js";
-    script.async = true;
-    script.dataset.ishqiyaRazorpay = "true";
-    script.onload = () => resolve(Boolean(window.Razorpay));
-    script.onerror = () => resolve(false);
-    document.body.appendChild(script);
-  });
-}
 
 export function DiscoverBrowser() {
   const router = useRouter();
@@ -115,56 +93,11 @@ export function DiscoverBrowser() {
   }
 
   async function choosePackage(productId: string) {
-    setProcessingPayment(true);
-    setMessage("");
-    try {
-      const { Capacitor } = await import("@capacitor/core");
-      if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android") {
-        window.dispatchEvent(new CustomEvent("ishqiya-buy-coins", { detail: { productId } }));
-        return;
-      }
-      const loaded = await loadRazorpay();
-      if (!loaded || !window.Razorpay) throw new Error("Browser payment gateway could not be loaded.");
-      const orderResponse = await fetch("/api/browser-payment/create-order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productId }),
-      });
-      const order = await orderResponse.json() as { keyId?: string; orderId?: string; amount?: number; currency?: string; coins?: number; error?: string };
-      if (!orderResponse.ok || !order.keyId || !order.orderId || !order.amount) throw new Error(order.error || "Browser payment order could not be created.");
-      const Razorpay = window.Razorpay;
-      const checkout = new Razorpay({
-        key: order.keyId,
-        amount: order.amount,
-        currency: order.currency || "INR",
-        name: "Ishqiya",
-        description: `${order.coins?.toLocaleString() || "Selected"} Ishqiya Coins`,
-        order_id: order.orderId,
-        handler: async (response: { razorpay_payment_id: string; razorpay_order_id: string; razorpay_signature: string }) => {
-          try {
-            const verifyResponse = await fetch("/api/browser-payment/verify", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ orderId: response.razorpay_order_id, paymentId: response.razorpay_payment_id, signature: response.razorpay_signature }),
-            });
-            const result = await verifyResponse.json() as { coins?: number; error?: string };
-            if (!verifyResponse.ok) throw new Error(result.error || "Payment verification failed.");
-            setMessage(`${result.coins?.toLocaleString() || "Your"} coins added successfully.`);
-            window.dispatchEvent(new CustomEvent("ishqiya-wallet-refresh"));
-            window.dispatchEvent(new CustomEvent("ishqiya-purchase-complete", { detail: { productId, coins: result.coins } }));
-          } catch (error) {
-            setMessage(error instanceof Error ? error.message : "Payment verification failed.");
-          } finally {
-            setProcessingPayment(false);
-          }
-        },
-        modal: { ondismiss: () => setProcessingPayment(false) },
-      });
-      checkout.open();
-    } catch (error) {
-      setProcessingPayment(false);
-      setMessage(error instanceof Error ? error.message : "Payment could not be started.");
-    }
+    setProcessingPayment(false);
+    setMessage(
+      "Browser coin purchases use the secure UPI flow in Wallet. Android purchases use Google Play Billing."
+    );
+    router.push(`/user/wallet?package=${encodeURIComponent(productId)}`);
   }
 
   async function act(targetId: string, action: "like" | "pass") {
@@ -207,7 +140,7 @@ export function DiscoverBrowser() {
         <section ref={paymentRef} aria-label="Video call payment" style={{ scrollMarginTop: 72, marginTop: "2rem", padding: "1.2rem", borderRadius: 24, border: "1px solid var(--line)", background: "var(--surface)", display: "grid", gap: "1rem" }}>
           <div><span className="eyebrow">Video call payment</span><h2 className="serif" style={{ margin: ".25rem 0 0" }}>Call {paymentHost.display_name}</h2><p className="muted" style={{ margin: ".35rem 0 0" }}>Choose one complete package. The amount and coin quantity are locked by Ishqiya.</p></div>
           <div style={{ display: "grid", gap: ".65rem" }}>{GOOGLE_PLAY_PRODUCTS.map((product) => <button key={product.id} type="button" className="choice-card" disabled={processingPayment} onClick={() => void choosePackage(product.id)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", textAlign: "left" }}><span><strong>{product.coins.toLocaleString()} coins</strong><span className="muted" style={{ display: "block", marginTop: ".2rem" }}>₹{product.coins.toLocaleString()} package</span></span><span>{processingPayment ? "Opening payment…" : "Pay now →"}</span></button>)}</div>
-          <p className="muted" style={{ fontSize: ".82rem" }}>Android: Google Play Billing. Browser: secure payment checkout. Video request is created only after the server verifies payment.</p>
+          <p className="muted" style={{ fontSize: ".82rem" }}>Android: Google Play Billing. Browser: secure UPI payment from Wallet. Video request is created only after the server verifies payment.</p>
         </section>
       )}
     </>

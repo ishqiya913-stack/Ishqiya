@@ -2,6 +2,16 @@
 
 import { useEffect, useRef, useState } from "react";
 
+type GooglePlayTransaction = {
+  products?: Array<{ id?: string; productId?: string }>;
+  purchaseToken?: string;
+  transaction?: {
+    purchaseToken?: string;
+    receipt?: string;
+  };
+  finish: () => void;
+};
+
 type GooglePlayProduct = {
   id: string;
   coins: number;
@@ -48,7 +58,7 @@ export function GooglePlayWallet() {
 
         buyProductRef.current = buy;
 
-        store.when().approved(async (transaction: any) => {
+        store.when().approved(async (transaction: GooglePlayTransaction) => {
           try {
             const productId = transaction.products?.[0]?.id ?? transaction.products?.[0]?.productId;
             let purchaseToken: string | undefined;
