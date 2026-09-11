@@ -22,11 +22,13 @@ export async function POST(request: Request) {
   const admin = createAdminClient();
   const { data: packageRow, error: packageError } = await admin.from("coin_packages").select("id, coins, price_rupees").eq("id", body.packageId).eq("is_active", true).maybeSingle();
   if (packageError || !packageRow) return NextResponse.json({ error: "That package is unavailable." }, { status: 400 });
-  const upiId = process.env.ISHQIYA_UPI_ID;
-  if (upiId !== "velvetbombay01@okhdfcbank") return NextResponse.json({ error: "UPI payments are not configured with the approved account." }, { status: 503 });
+  const upiId = process.env.ISHQIYA_UPI_ID?.trim();
+  if (!upiId) return NextResponse.json({ error: "UPI payments are not configured on the server." }, { status: 503 });
+  const amountRupees = Number(packageRow.price_rupees);
+  if (!Number.isFinite(amountRupees) || amountRupees <= 0) return NextResponse.json({ error: "Coin package price is invalid." }, { status: 500 });
   const orderId = crypto.randomUUID();
-  const upiUri = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=Ishqiya&am=${(packageRow.price_rupees / 100).toFixed(2)}&cu=INR&tn=${encodeURIComponent(`Ishqiya ${orderId}`)}`;
-  const { data: order, error } = await admin.from("payment_orders").insert({ id: orderId, user_id: user.id, package_id: packageRow.id, coins: packageRow.coins, expected_amount_paise: packageRow.price_rupees, upi_uri: upiUri }).select("id, coins, expected_amount_paise, upi_uri, status, expires_at").single();
+  const upiUri = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=Ishqiya&am=${amountRupees.toFixed(2)}&cu=INR&tn=${encodeURIComponent(`Ishqiya ${orderId}`)}`;
+  const { data: order, error } = await admin.from("payment_orders").insert({ id: orderId, user_id: user.id, package_id: packageRow.id, coins: packageRow.coins, expected_amount_paise: Math.round(amountRupees * 100), upi_uri: upiUri }).select("id, coins, expected_amount_paise, upi_uri, status, expires_at").single();
   if (error) return NextResponse.json({ error: "Payment order could not be created." }, { status: 500 });
   return NextResponse.json({ order });
 }
