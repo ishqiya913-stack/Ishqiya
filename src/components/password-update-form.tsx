@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Input } from "@/components/ui";
 import { BackControl } from "@/components/navigation";
@@ -8,7 +8,8 @@ import { createClient } from "@/lib/supabase/client";
 
 export function PasswordUpdateForm({ mode }: { mode: "user" | "host" | "admin" }) {
   const router = useRouter();
-  const supabase = createClient();
+  const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
+  const getSupabase = () => (supabaseRef.current ??= createClient());
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [message, setMessage] = useState("");
@@ -18,7 +19,7 @@ export function PasswordUpdateForm({ mode }: { mode: "user" | "host" | "admin" }
   useEffect(() => {
     let mounted = true;
     const prepare = async () => {
-      const { data } = await supabase.auth.getSession();
+      const { data } = await getSupabase().auth.getSession();
       if (data.session) {
         if (mounted) { setReady(true); setLoading(false); }
         return;
@@ -30,7 +31,7 @@ export function PasswordUpdateForm({ mode }: { mode: "user" | "host" | "admin" }
         if (mounted) { setMessage("This reset link is invalid or expired. Please request a new one."); setLoading(false); }
         return;
       }
-      const { error } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+      const { error } = await getSupabase().auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
       if (!mounted) return;
       if (error) { setMessage("This reset link is invalid or expired. Please request a new one."); setLoading(false); return; }
       window.history.replaceState(null, "", window.location.pathname + window.location.search);
@@ -39,10 +40,10 @@ export function PasswordUpdateForm({ mode }: { mode: "user" | "host" | "admin" }
     };
     void prepare();
     return () => { mounted = false; };
-  }, [supabase]);
+  }, [])
 
   async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+      event.preventDefault();
     if (!ready) return;
     if (password.length < 8 || password !== confirmPassword) {
       setMessage("Use at least 8 characters and make both passwords match.");
@@ -50,9 +51,9 @@ export function PasswordUpdateForm({ mode }: { mode: "user" | "host" | "admin" }
     }
     setLoading(true);
     setMessage("");
-    const { error } = await supabase.auth.updateUser({ password });
+    const { error } = await getSupabase().auth.updateUser({ password });
     if (error) { setMessage(error.message); setLoading(false); return; }
-    await supabase.auth.signOut();
+    await getSupabase().auth.signOut();
     router.replace(`/auth/${mode}/sign-in?reset=complete`);
   }
 
