@@ -24,7 +24,7 @@ export function AdminSettings() {
   if (loading) return <p className="muted">Loading live settings…</p>;
   return <div className="choice-card" style={{display:"grid",gap:"1rem"}}>
     <div><span className="eyebrow">Live control centre</span><h2>Edit app & portal settings</h2><p className="muted">Changes are stored server-side and are read by the app on the next request; no rebuild is required for database-backed settings.</p></div>
-    {FIELDS.map(([key,label]) => <label key={key} style={{display:"grid",gap:".4rem"}}><span>{label}</span><Input id={`setting-${key}`} value={settings[key] ?? ""} onChange={e=>setSettings(s=>({...s,[key]:e.target.value}))} /></label>)}
+    {FIELDS.map(([key,label]) => <label key={key} style={{display:"grid",gap:".4rem"}}><span>{label}</span><Input id={`setting-${key}`} value={settings[key] ?? ""} label={label} onChange={e=>setSettings(s=>({...s,[key]:e.target.value}))} /></label>)}
     <div className="form-footer"><Button type="button" onClick={()=>void save()} disabled={saving}>{saving?"Saving…":"Save live settings"}</Button>{message&&<span className="muted" role="status">{message}</span>}</div>
   </div>;
 }
