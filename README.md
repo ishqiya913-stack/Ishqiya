@@ -48,4 +48,3 @@ ISHQIYA_UPI_ID=velvetbombay01@okhdfcbank
 
 Configure the LiveKit webhook URL as `/api/webhooks/livekit`. The reconciliation endpoint `/api/internal/livekit/reconcile` is intended for a trusted scheduler and requires `Authorization: Bearer <LIVEKIT_RECONCILIATION_SECRET>`.
 
-Vercel invokes `/api/internal/livekit/billing-cron` once per minute using the `vercel.json` cron configuration. Vercel Hobby does not support once-per-minute cron schedules; use a plan that supports per-minute cron execution. Vercel supplies the `Authorization: Bearer <CRON_SECRET>` header when `CRON_SECRET` is configured server-side.
