@@ -72,7 +72,6 @@ export async function POST(request: Request) {
 
     const result = await publisher.purchases.products.get({
       packageName: PACKAGE_NAME,
-      provider: "google_play",
       productId,
       token: purchaseToken,
     });
