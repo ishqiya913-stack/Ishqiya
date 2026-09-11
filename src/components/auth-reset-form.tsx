@@ -7,11 +7,11 @@ import { Button, Input } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 
 export function AuthResetForm({ mode }: { mode: "user" | "host" | "admin" }) {
-  const supabase = createClient();
   const [email, setEmail] = useState(""); const [message, setMessage] = useState(""); const [loading, setLoading] = useState(false);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setLoading(true); setMessage("");
     const normalized = email.trim().toLowerCase();
+    const supabase = createClient();
     if (mode === "admin" && normalized !== "ishqiya913@gmail.com") { setMessage("If the authorized Admin account exists for that email, a reset link is on its way."); setLoading(false); return; }
     const { error } = await supabase.auth.resetPasswordForEmail(normalized, { redirectTo: `${window.location.origin}/auth/${mode}/reset-password` });
     setMessage(error ? error.message : "If an account exists for that email, a reset link is on its way."); setLoading(false);
