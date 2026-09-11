@@ -86,13 +86,6 @@ export function DiscoverBrowser() {
       if (!pendingHostId) return;
       setProcessingPayment(true);
       try {
-        const selectedHost = profiles.find((profile) => profile.host_id === pendingHostId);
-        if (selectedHost?.is_demo) {
-          setMessage("Payment verified. This development preview has no real Host participant.");
-          setPaymentHost(null);
-          setPendingHostId("");
-          return;
-        }
         const response = await fetch("/api/video/request", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -113,7 +106,7 @@ export function DiscoverBrowser() {
     const listener = () => void handlePurchaseComplete();
     window.addEventListener("ishqiya-purchase-complete", listener);
     return () => window.removeEventListener("ishqiya-purchase-complete", listener);
-  }, [pendingHostId, profiles, router]);
+  }, [pendingHostId, router]);
 
   function openVideoPayment(profile: Profile) {
     setMessage("");
@@ -194,8 +187,8 @@ export function DiscoverBrowser() {
 
   const renderCard = (profile: Profile) => (
     <article className="discover-card" key={profile.host_id} style={{ width: "100%", maxWidth: 360, margin: 0, overflow: "hidden", borderRadius: 24, background: "var(--surface)", border: "1px solid var(--line)" }}>
-      <div className="discover-photo" role="img" aria-label={`${profile.display_name} profile photo`} style={{ aspectRatio: "4 / 5", width: "100%", maxHeight: 460, overflow: "hidden", position: "relative", background: "var(--blush)" }}>
-        {profile.avatar_path ? <img src={profile.avatar_path} alt={`${profile.display_name} profile`} loading="lazy" onError={(event) => { event.currentTarget.style.display = "none"; }} style={{ display: "block", width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 15%" }} /> : <div className="photo-placeholder" style={{ height: "100%", minHeight: 0 }}>Profile photo</div>}
+      <div className="discover-photo" role="img" aria-label={`${profile.display_name} profile photo`} style={{ aspectRatio: "4 / 5", width: "100%", maxHeight: 460, overflow: "hidden", position: "relative", background: "var(--blush)", display: "grid", placeItems: "center" }}>
+        {profile.avatar_path ? <img src={profile.avatar_path} alt={`${profile.display_name} profile`} loading="lazy" onError={(event) => { event.currentTarget.style.display = "none"; }} style={{ display: "block", width: "100%", height: "100%", objectFit: "contain", objectPosition: "center" }} /> : <div className="photo-placeholder" style={{ height: "100%", minHeight: 0 }}>Profile photo</div>}
       </div>
       <div className="discover-info" style={{ padding: "1.05rem 1.1rem 1.15rem" }}>
         <div style={{ alignItems: "flex-start", display: "flex", justifyContent: "space-between", gap: ".8rem" }}><div style={{ minWidth: 0 }}><h2 style={{ margin: 0, fontSize: "1.15rem" }}>{profile.display_name}{profile.age ? `, ${profile.age}` : ""}</h2>{profile.city && <p style={{ margin: ".3rem 0 0", color: "var(--muted)" }}>{profile.city}</p>}</div><span aria-label="Available" title="Available" style={{ width: 9, height: 9, marginTop: 7, borderRadius: "50%", background: "#62c58a", flex: "0 0 auto" }} /></div>
@@ -214,7 +207,7 @@ export function DiscoverBrowser() {
         <section ref={paymentRef} aria-label="Video call payment" style={{ scrollMarginTop: 72, marginTop: "2rem", padding: "1.2rem", borderRadius: 24, border: "1px solid var(--line)", background: "var(--surface)", display: "grid", gap: "1rem" }}>
           <div><span className="eyebrow">Video call payment</span><h2 className="serif" style={{ margin: ".25rem 0 0" }}>Call {paymentHost.display_name}</h2><p className="muted" style={{ margin: ".35rem 0 0" }}>Choose one complete package. The amount and coin quantity are locked by Ishqiya.</p></div>
           <div style={{ display: "grid", gap: ".65rem" }}>{GOOGLE_PLAY_PRODUCTS.map((product) => <button key={product.id} type="button" className="choice-card" disabled={processingPayment} onClick={() => void choosePackage(product.id)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", textAlign: "left" }}><span><strong>{product.coins.toLocaleString()} coins</strong><span className="muted" style={{ display: "block", marginTop: ".2rem" }}>₹{product.coins.toLocaleString()} package</span></span><span>{processingPayment ? "Opening payment…" : "Pay now →"}</span></button>)}</div>
-          <p className="muted" style={{ fontSize: ".82rem" }}>Android: Google Play Billing. Browser: secure Razorpay Checkout. Video request is created only after the server verifies payment.</p>
+          <p className="muted" style={{ fontSize: ".82rem" }}>Android: Google Play Billing. Browser: secure payment checkout. Video request is created only after the server verifies payment.</p>
         </section>
       )}
     </>
