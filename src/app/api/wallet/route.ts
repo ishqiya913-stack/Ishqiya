@@ -28,7 +28,15 @@ export async function POST(request: Request) {
   if (!Number.isFinite(amountRupees) || amountRupees <= 0) return NextResponse.json({ error: "Coin package price is invalid." }, { status: 500 });
   const orderId = crypto.randomUUID();
   const upiUri = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=Ishqiya&am=${amountRupees.toFixed(2)}&cu=INR&tn=${encodeURIComponent(`Ishqiya ${orderId}`)}`;
-  const { data: order, error } = await admin.from("payment_orders").insert({ id: orderId, user_id: user.id, package_id: packageRow.id, coins: packageRow.coins, expected_amount_paise: Math.round(amountRupees * 100), upi_uri: upiUri }).select("id, coins, expected_amount_paise, upi_uri, status, expires_at").single();
+  const { data: order, error } = await admin.from("payment_orders").insert({
+    id: orderId,
+    user_id: user.id,
+    package_id: packageRow.id,
+    coins: packageRow.coins,
+    expected_amount_paise: Math.round(amountRupees * 100),
+    upi_uri: upiUri,
+    payment_provider: "upi",
+  }).select("id, coins, expected_amount_paise, upi_uri, status, expires_at").single();
   if (error) return NextResponse.json({ error: "Payment order could not be created." }, { status: 500 });
   return NextResponse.json({ order });
 }

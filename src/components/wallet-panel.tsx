@@ -3,6 +3,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { Button, Input, Loading } from "@/components/ui";
+import { Capacitor } from "@capacitor/core";
 
 type Package = { id: string; coins: number; price_rupees: number };
 type Order = {
@@ -15,6 +16,11 @@ type Order = {
 };
 
 export function WalletPanel() {
+  // Browser UPI is intentionally unavailable inside the Play Android app.
+  // Android purchases must use Google Play Billing.
+  const isAndroidApp =
+    Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android";
+
   const [balance, setBalance] = useState(0);
   const [packages, setPackages] = useState<Package[]>([]);
   const [selected, setSelected] = useState<Package | null>(null);
@@ -141,6 +147,8 @@ export function WalletPanel() {
   }
 
   if (loading) return <Loading label="Loading wallet" />;
+
+  if (isAndroidApp) return null;
 
   return (
     <div className="wallet-panel">

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-const allowedKinds = ["payments", "reports", "violations", "host-verification", "users", "hosts"] as const;
+const allowedKinds = ["payments", "google-play", "reports", "violations", "host-verification", "users", "hosts"] as const;
 type QueueKind = (typeof allowedKinds)[number];
 
 export async function GET(request: Request) {
@@ -17,7 +17,8 @@ export async function GET(request: Request) {
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
   let query;
-  if (kind === "payments") query = admin.from("payment_verifications").select("id,order_id,user_id,utr,transaction_id,screenshot_path,status,fraud_flags,fraud_reason,attempt_number,expected_amount_paise,created_at,payment_orders(coins,expected_amount_paise,status)", { count: "exact" }).order("created_at", { ascending: false });
+  if (kind === "payments") query = admin.from("payment_verifications").select("id,order_id,user_id,utr,transaction_id,screenshot_path,status,fraud_flags,fraud_reason,attempt_number,expected_amount_paise,created_at,reviewed_at,reviewed_by,admin_note,payment_orders(coins,expected_amount_paise,status,payment_provider,provider_reference,created_at,paid_at,reviewed_at)", { count: "exact" }).order("created_at", { ascending: false });
+  else if (kind === "google-play") query = admin.from("google_play_purchases").select("id,user_id,product_id,purchase_token,order_id,package_name,purchase_state,consumption_state,purchase_time,processed_at,consumed_at,coins_credited,verification_error,last_verified_at,last_verification_error,created_at,updated_at", { count: "exact" }).order("created_at", { ascending: false });
   else if (kind === "reports") query = admin.from("reports").select("id,reporter_id,reported_id,reporter_role,reported_role,reason,status,created_at", { count: "exact" }).order("created_at", { ascending: false });
   else if (kind === "violations") query = admin.from("violations").select("id,account_id,account_role,source_type,violation_type,confidence,status,reason,created_at", { count: "exact" }).order("created_at", { ascending: false });
   else if (kind === "host-verification") query = admin.from("host_verification_photos").select("id,host_id,photo_number,status,storage_path,created_at", { count: "exact" }).order("created_at", { ascending: false });
