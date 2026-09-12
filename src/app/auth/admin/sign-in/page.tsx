@@ -5,6 +5,27 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 export default function AdminSignIn() {
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setError("")
+    setLoading(true)
+    try {
+      const res = await fetch("/api/auth/admin/sign-in", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Unable to sign in")
+      window.location.href = data.redirectTo || "/admin"
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to sign in")
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
