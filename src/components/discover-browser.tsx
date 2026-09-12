@@ -20,7 +20,6 @@ type Profile = {
 };
 
 function withDemoHosts(realProfiles: Profile[]) {
-  if (process.env.NODE_ENV === "production") return realProfiles;
   const realIds = new Set(realProfiles.map((profile) => profile.host_id));
   return [...realProfiles, ...DEMO_HOSTS.filter((profile) => !realIds.has(profile.host_id))];
 }
@@ -102,7 +101,7 @@ export function DiscoverBrowser() {
 
   async function act(targetId: string, action: "like" | "pass") {
     if (targetId.startsWith("demo-host-")) {
-      setProfiles((current) => current.filter((profile) => profile.host_id !== targetId));
+      setMessage("This is a preview Host profile. Real chat/video starts only with an approved live Host account.");
       return;
     }
     const response = await fetch("/api/discover/action", {
@@ -119,7 +118,7 @@ export function DiscoverBrowser() {
   if (!loading && profiles.length === 0) return <EmptyState title="No Hosts are available yet" message="Approved, active Hosts will appear here when they are ready to meet." />;
 
   const renderCard = (profile: Profile) => (
-    <article className="discover-card" key={profile.host_id} style={{ width: "100%", maxWidth: 360, margin: 0, overflow: "hidden", borderRadius: 24, background: "var(--surface)", border: "1px solid var(--line)" }}>
+    <article className="discover-card" key={profile.host_id} style={{ width: "100%", maxWidth: 360, margin: 0, overflow: "hidden", borderRadius: 24, background: "var(--surface)", border: "1px solid var(--line)", opacity: profile.is_demo ? 0.94 : 1 }}>
       <div className="discover-photo" role="img" aria-label={`${profile.display_name} profile photo`} style={{ aspectRatio: "4 / 5", width: "100%", maxHeight: 460, overflow: "hidden", position: "relative", background: "var(--blush)", display: "grid", placeItems: "center" }}>
         {profile.avatar_path ? <img src={profile.avatar_path} alt={`${profile.display_name} profile`} loading="lazy" onError={(event) => { event.currentTarget.style.display = "none"; }} style={{ display: "block", width: "100%", height: "100%", objectFit: "contain", objectPosition: "center" }} /> : <div className="photo-placeholder" style={{ height: "100%", minHeight: 0 }}>Profile photo</div>}
       </div>
@@ -127,7 +126,9 @@ export function DiscoverBrowser() {
         <div style={{ alignItems: "flex-start", display: "flex", justifyContent: "space-between", gap: ".8rem" }}><div style={{ minWidth: 0 }}><h2 style={{ margin: 0, fontSize: "1.15rem" }}>{profile.display_name}{profile.age ? `, ${profile.age}` : ""}</h2>{profile.city && <p style={{ margin: ".3rem 0 0", color: "var(--muted)" }}>{profile.city}</p>}</div><span aria-label="Available" title="Available" style={{ width: 9, height: 9, marginTop: 7, borderRadius: "50%", background: "#62c58a", flex: "0 0 auto" }} /></div>
         <p style={{ color: "var(--muted)", lineHeight: 1.5, margin: ".65rem 0 .9rem", minHeight: "2.5rem" }}>{profile.headline || profile.bio || "A great conversation awaits."}</p>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: ".55rem", marginBottom: ".55rem" }}><Button type="button" variant="danger" onClick={() => void act(profile.host_id, "pass")}>✕ Pass</Button><Button type="button" onClick={() => void act(profile.host_id, "like")}>♥ Like</Button></div>
-        <Button type="button" onClick={() => openVideoPayment(profile)} style={{ width: "100%" }}>◉ Video Call</Button>
+        <Button type="button" disabled={Boolean(profile.is_demo)} onClick={() => openVideoPayment(profile)} style={{ width: "100%" }}>
+          {profile.is_demo ? "Preview Profile" : "◉ Video Call"}
+        </Button>
       </div>
     </article>
   );

@@ -91,7 +91,13 @@ export function WalletPanel() {
       setOrder(result.order);
 
       // Opens a real UPI payment intent. No client-side credit is performed.
-      window.location.assign(result.order.upi_uri);
+      const link = document.createElement("a");
+      link.href = result.order.upi_uri;
+      link.rel = "noopener";
+      link.target = "_self";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
     } catch {
       setMessage("Could not start UPI payment.");
     } finally {
