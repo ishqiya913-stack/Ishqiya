@@ -6,7 +6,6 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, EmptyState, Loading } from "@/components/ui";
 import { GOOGLE_PLAY_PRODUCTS } from "@/components/google-play-wallet";
-import { DEMO_HOSTS } from "@/lib/demo-hosts";
 
 type Profile = {
   host_id: string;
@@ -16,14 +15,7 @@ type Profile = {
   city: string | null;
   age: number | null;
   avatar_path: string | null;
-  is_demo?: boolean;
 };
-
-function withDemoHosts(realProfiles: Profile[]) {
-  const realIds = new Set(realProfiles.map((profile) => profile.host_id));
-  return [...realProfiles, ...DEMO_HOSTS.filter((profile) => !realIds.has(profile.host_id))];
-}
-
 
 export function DiscoverBrowser() {
   const router = useRouter();
@@ -42,9 +34,9 @@ export function DiscoverBrowser() {
       const response = await fetch("/api/discover?limit=20&offset=0", { cache: "no-store" });
       const result = await response.json() as { profiles?: Profile[]; error?: string };
       if (!response.ok) setMessage(result.error || "Discovery could not be loaded.");
-      setProfiles(withDemoHosts(result.profiles || []));
+      setProfiles(result.profiles || []);
     } catch {
-      setProfiles(withDemoHosts([]));
+      setProfiles([]);
       setMessage("Discovery could not reach the server.");
     } finally {
       setLoading(false);
@@ -93,17 +85,11 @@ export function DiscoverBrowser() {
 
   async function choosePackage(productId: string) {
     setProcessingPayment(false);
-    setMessage(
-      "Browser coin purchases use the secure UPI flow in Wallet. Android purchases use Google Play Billing."
-    );
+    setMessage("Browser coin purchases use the secure UPI flow in Wallet. Android purchases use Google Play Billing.");
     router.push(`/user/wallet?package=${encodeURIComponent(productId)}`);
   }
 
   async function act(targetId: string, action: "like" | "pass") {
-    if (targetId.startsWith("demo-host-")) {
-      setMessage("This is a preview Host profile. Real chat/video starts only with an approved live Host account.");
-      return;
-    }
     const response = await fetch("/api/discover/action", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -118,7 +104,7 @@ export function DiscoverBrowser() {
   if (!loading && profiles.length === 0) return <EmptyState title="No Hosts are available yet" message="Approved, active Hosts will appear here when they are ready to meet." />;
 
   const renderCard = (profile: Profile) => (
-    <article className="discover-card" key={profile.host_id} style={{ width: "100%", maxWidth: 360, margin: 0, overflow: "hidden", borderRadius: 24, background: "var(--surface)", border: "1px solid var(--line)", opacity: profile.is_demo ? 0.94 : 1 }}>
+    <article className="discover-card" key={profile.host_id} style={{ width: "100%", maxWidth: 360, margin: 0, overflow: "hidden", borderRadius: 24, background: "var(--surface)", border: "1px solid var(--line)" }}>
       <div className="discover-photo" role="img" aria-label={`${profile.display_name} profile photo`} style={{ aspectRatio: "4 / 5", width: "100%", maxHeight: 460, overflow: "hidden", position: "relative", background: "var(--blush)", display: "grid", placeItems: "center" }}>
         {profile.avatar_path ? <img src={profile.avatar_path} alt={`${profile.display_name} profile`} loading="lazy" onError={(event) => { event.currentTarget.style.display = "none"; }} style={{ display: "block", width: "100%", height: "100%", objectFit: "contain", objectPosition: "center" }} /> : <div className="photo-placeholder" style={{ height: "100%", minHeight: 0 }}>Profile photo</div>}
       </div>
@@ -126,9 +112,7 @@ export function DiscoverBrowser() {
         <div style={{ alignItems: "flex-start", display: "flex", justifyContent: "space-between", gap: ".8rem" }}><div style={{ minWidth: 0 }}><h2 style={{ margin: 0, fontSize: "1.15rem" }}>{profile.display_name}{profile.age ? `, ${profile.age}` : ""}</h2>{profile.city && <p style={{ margin: ".3rem 0 0", color: "var(--muted)" }}>{profile.city}</p>}</div><span aria-label="Available" title="Available" style={{ width: 9, height: 9, marginTop: 7, borderRadius: "50%", background: "#62c58a", flex: "0 0 auto" }} /></div>
         <p style={{ color: "var(--muted)", lineHeight: 1.5, margin: ".65rem 0 .9rem", minHeight: "2.5rem" }}>{profile.headline || profile.bio || "A great conversation awaits."}</p>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: ".55rem", marginBottom: ".55rem" }}><Button type="button" variant="danger" onClick={() => void act(profile.host_id, "pass")}>✕ Pass</Button><Button type="button" onClick={() => void act(profile.host_id, "like")}>♥ Like</Button></div>
-        <Button type="button" disabled={Boolean(profile.is_demo)} onClick={() => openVideoPayment(profile)} style={{ width: "100%" }}>
-          {profile.is_demo ? "Preview Profile" : "◉ Video Call"}
-        </Button>
+        <Button type="button" onClick={() => openVideoPayment(profile)} style={{ width: "100%" }}>◉ Video Call</Button>
       </div>
     </article>
   );
