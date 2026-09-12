@@ -7,100 +7,35 @@ type Kind = "payments" | "google-play" | "reports" | "violations" | "host-verifi
 type Item = Record<string, unknown>;
 
 const labels: Record<Kind, string> = {
-  payments: "UPI Payments",
-  "google-play": "Google Play Purchases",
-  reports: "Reports",
-  violations: "Violations",
-  "host-verification": "Host Verification",
-  users: "Users",
-  hosts: "Hosts",
-  earnings: "Host Earnings",
-  audit: "Audit Log",
-  video: "Video Sessions",
+  payments: "UPI Payments", "google-play": "Google Play Purchases", reports: "Reports", violations: "Violations",
+  "host-verification": "Host Verification", users: "Users", hosts: "Hosts", earnings: "Host Earnings", audit: "Audit Log", video: "Video Sessions",
 };
 
-function text(value: unknown, fallback = "—") {
-  if (value === null || value === undefined || value === "") return fallback;
-  return String(value);
-}
+function text(value: unknown, fallback = "—") { return value === null || value === undefined || value === "" ? fallback : String(value); }
+function date(value: unknown) { if (!value) return "—"; const d = new Date(String(value)); return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleString("en-IN"); }
+function Badge({ value }: { value: unknown }) { return <span style={{ display: "inline-flex", border: "1px solid var(--line)", borderRadius: 999, padding: ".25rem .55rem", fontSize: ".7rem", fontWeight: 800 }}>{text(value)}</span>; }
 
-function date(value: unknown) {
-  if (!value) return "—";
-  const parsed = new Date(String(value));
-  return Number.isNaN(parsed.getTime()) ? String(value) : parsed.toLocaleString("en-IN");
-}
+export function AdminQueue({ initialKind }: { initialKind?: Kind }) {
+  const [kind, setKind] = useState<Kind>(initialKind || "payments");
+  const [items, setItems] = useState<Item[]>([]); const [page, setPage] = useState(1); const [total, setTotal] = useState(0); const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true); const [error, setError] = useState(""); const [working, setWorking] = useState<string | null>(null);
 
-function Badge({ value }: { value: unknown }) {
-  return <span style={{ display: "inline-flex", border: "1px solid var(--line)", borderRadius: 999, padding: ".25rem .55rem", fontSize: ".7rem", fontWeight: 800 }}>{text(value)}</span>;
-}
-
-export function AdminQueue() {
-  const [kind, setKind] = useState<Kind>("payments");
-  const [items, setItems] = useState<Item[]>([]);
-  const [page, setPage] = useState(1);
-  const [total, setTotal] = useState(0);
-  const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [working, setWorking] = useState<string | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    async function load() {
-      setLoading(true);
-      try {
-        const response = await fetch(`/api/admin/queue?kind=${kind}&page=${page}&search=${encodeURIComponent(search)}`);
-        const result = await response.json() as { items?: Item[]; total?: number; error?: string };
-        if (!active) return;
-        if (!response.ok) setError(result.error || "Queue could not be loaded.");
-        else { setItems(result.items || []); setTotal(result.total || 0); setError(""); }
-      } catch {
-        if (active) setError("Queue could not be loaded.");
-      } finally {
-        if (active) setLoading(false);
-      }
-    }
-    void load();
-    return () => { active = false; };
-  }, [kind, page, search]);
+  useEffect(() => { if (initialKind) { setKind(initialKind); setPage(1); } }, [initialKind]);
+  useEffect(() => { let active = true; async function load() { setLoading(true); try { const response = await fetch(`/api/admin/queue?kind=${kind}&page=${page}&search=${encodeURIComponent(search)}`); const result = await response.json() as { items?: Item[]; total?: number; error?: string }; if (!active) return; if (!response.ok) setError(result.error || "Queue could not be loaded."); else { setItems(result.items || []); setTotal(result.total || 0); setError(""); } } catch { if (active) setError("Queue could not be loaded."); } finally { if (active) setLoading(false); } } void load(); return () => { active = false; }; }, [kind, page, search]);
 
   async function postAction(item: Item, endpoint: string, body: Record<string, unknown>, remove = true) {
-    const id = String(item.id);
-    if (!window.confirm(`Confirm this ${body.decision || body.status || "admin"} action?`)) return;
-    const reason = window.prompt("Optional admin reason:") || "";
-    setWorking(id);
-    try {
-      const response = await fetch(`${endpoint}/${id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...body, reason }) });
-      const result = await response.json() as { error?: string };
-      if (!response.ok) setError(result.error || "Action could not be completed.");
-      else if (remove) setItems((current) => current.filter((entry) => String(entry.id) !== id));
-      else setItems((current) => current.map((entry) => String(entry.id) === id ? { ...entry, ...result } : entry));
-    } catch {
-      setError("Action could not be completed.");
-    } finally {
-      setWorking(null);
-    }
+    const id = String(item.id); if (!window.confirm(`Confirm this ${body.decision || body.status || "admin"} action?`)) return;
+    const reason = window.prompt("Optional admin reason:") || ""; setWorking(id);
+    try { const response = await fetch(`${endpoint}/${id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...body, reason }) }); const result = await response.json() as { error?: string }; if (!response.ok) setError(result.error || "Action could not be completed."); else if (remove) setItems((current) => current.filter((entry) => String(entry.id) !== id)); else setItems((current) => current.map((entry) => String(entry.id) === id ? { ...entry, status: body.status } : entry)); } catch { setError("Action could not be completed."); } finally { setWorking(null); }
   }
 
   async function profileAction(item: Item, status: "active" | "suspended" | "blocked") {
-    const id = String(item.id);
-    if (!window.confirm(`Set this account to ${status}?`)) return;
-    setWorking(id);
-    try {
-      const response = await fetch("/api/admin/profiles", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ profileId: id, accountStatus: status }) });
-      const result = await response.json() as { error?: string; profile?: Item };
-      if (!response.ok) setError(result.error || "Profile could not be updated.");
-      else setItems((current) => current.map((entry) => String(entry.id) === id ? { ...entry, ...(result.profile || {}), account_status: status } : entry));
-    } catch {
-      setError("Profile could not be updated.");
-    } finally {
-      setWorking(null);
-    }
+    const id = String(item.id); if (!window.confirm(`Set this account to ${status}?`)) return; setWorking(id);
+    try { const response = await fetch("/api/admin/profiles", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ profileId: id, accountStatus: status }) }); const result = await response.json() as { error?: string; profile?: Item }; if (!response.ok) setError(result.error || "Profile could not be updated."); else setItems((current) => current.map((entry) => String(entry.id) === id ? { ...entry, ...(result.profile || {}), account_status: status } : entry)); } catch { setError("Profile could not be updated."); } finally { setWorking(null); }
   }
 
   function actions(item: Item) {
-    const id = String(item.id);
-    const disabled = working === id;
+    const id = String(item.id); const disabled = working === id;
     if (kind === "payments") return <><Button type="button" disabled={disabled} onClick={() => void postAction(item, "/api/admin/payments", { decision: "approve" })}>Approve</Button><Button type="button" variant="danger" disabled={disabled} onClick={() => void postAction(item, "/api/admin/payments", { decision: "reject" })}>Reject</Button></>;
     if (kind === "violations") return <><Button type="button" disabled={disabled} onClick={() => void postAction(item, "/api/admin/violations", { decision: "confirm" })}>Confirm</Button><Button type="button" variant="quiet" disabled={disabled} onClick={() => void postAction(item, "/api/admin/violations", { decision: "dismiss" })}>Dismiss</Button></>;
     if (kind === "reports") return <><Button type="button" disabled={disabled} onClick={() => void postAction(item, "/api/admin/reports", { status: "reviewing" }, false)}>Review</Button><Button type="button" disabled={disabled} onClick={() => void postAction(item, "/api/admin/reports", { status: "resolved" })}>Resolve</Button><Button type="button" variant="quiet" disabled={disabled} onClick={() => void postAction(item, "/api/admin/reports", { status: "dismissed" })}>Dismiss</Button></>;
@@ -111,35 +46,24 @@ export function AdminQueue() {
 
   function renderItem(item: Item, index: number) {
     const title = kind === "users" || kind === "hosts" ? text(item.display_name, text(item.email, "Account")) : labels[kind];
-    return (
-      <article key={String(item.id || index)} className="choice-card" style={{ display: "grid", gap: ".8rem" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem", alignItems: "flex-start" }}>
-          <div><strong>{title}</strong><div className="muted" style={{ fontSize: ".76rem", marginTop: ".2rem" }}>{text(item.email)} · {date(item.created_at)}</div></div>
-          <Badge value={item.status ?? item.account_status ?? item.purchase_state ?? item.reconciliation_status} />
-        </div>
-
-        {kind === "payments" && <div style={{ display: "grid", gap: ".35rem" }}><div><strong>{Math.round(Number(item.expected_amount_paise || 0) / 100)} INR</strong> · {text(item.utr)} · {text(item.transaction_id)}</div>{item.screenshot_url && <a href={String(item.screenshot_url)} target="_blank" rel="noreferrer">Open payment proof</a>}<span className="muted">Attempt {text(item.attempt_number)} · Fraud flags: {Array.isArray(item.fraud_flags) ? item.fraud_flags.length : 0}</span></div>}
-        {kind === "google-play" && <div><strong>{text(item.coins_credited, "0")} coins</strong> · {text(item.product_id)} · {text(item.purchase_state)} / {text(item.consumption_state)}{item.verification_error ? <p className="muted">{text(item.verification_error)}</p> : null}</div>}
-        {kind === "reports" && <div><strong>{text(item.reason)}</strong><div className="muted">Reporter: {text(item.reporter_id)} → Reported: {text(item.reported_id)} · {text(item.reporter_role)} → {text(item.reported_role)}</div></div>}
-        {kind === "violations" && <div><strong>{text(item.violation_type)}</strong><div className="muted">{text(item.reason)} · Confidence {item.confidence == null ? "—" : `${Math.round(Number(item.confidence) * 100)}%`}</div></div>}
-        {kind === "host-verification" && <div style={{ display: "grid", gap: ".6rem" }}><span>Host {text(item.host_id)} · Photo {text(item.photo_number)}</span>{item.verification_url && <img src={String(item.verification_url)} alt={`Host verification photo ${text(item.photo_number)}`} style={{ width: "100%", maxWidth: 320, maxHeight: 420, objectFit: "cover", borderRadius: 14, border: "1px solid var(--line)" }} />}</div>}
-        {kind === "earnings" && <div><strong>{text(item.earned_coins, "0")} earned coins</strong> · Gross {text(item.gross_coins, "0")} · Host share {text(item.share_percent, "0")}%<div className="muted">Host {text(item.host_id)} · Source {text(item.source_type)} · Interval {text(item.billing_interval)}</div></div>}
-        {kind === "video" && <div><strong>{text(item.room_name)}</strong> · {text(item.duration_seconds, "0")} sec · {text(item.coins_charged, "0")} coins<div className="muted">Status {text(item.status)} · Moderation {text(item.moderation_status)} · Reconciliation {text(item.reconciliation_status)}</div></div>}
-        {kind === "audit" && <div><strong>{text(item.action)}</strong><div className="muted">{text(item.target_type)} · {text(item.target_id)} · Admin {text(item.admin_id)}</div>{item.reason ? <div className="muted">Reason: {text(item.reason)}</div> : null}</div>}
-        {(kind === "users" || kind === "hosts") && <div><span className="muted">Role: {text(item.role)} · Account: {text(item.account_status)}</span></div>}
-        <div className="form-footer">{actions(item)}</div>
-      </article>
-    );
+    return <article key={String(item.id || index)} className="choice-card" style={{ display: "grid", gap: ".8rem" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem", alignItems: "flex-start" }}><div><strong>{title}</strong><div className="muted" style={{ fontSize: ".76rem", marginTop: ".2rem" }}>{text(item.email)} · {date(item.created_at)}</div></div><Badge value={item.status ?? item.account_status ?? item.purchase_state ?? item.reconciliation_status} /></div>
+      {kind === "payments" && <div style={{ display: "grid", gap: ".35rem" }}><div><strong>{(Number(item.expected_amount_paise || 0) / 100).toFixed(2)} INR</strong> · UTR {text(item.utr)} · Txn {text(item.transaction_id)}</div>{item.screenshot_url && <a href={String(item.screenshot_url)} target="_blank" rel="noreferrer">Open payment proof</a>}<span className="muted">Attempt {text(item.attempt_number)} · Fraud flags: {Array.isArray(item.fraud_flags) ? item.fraud_flags.length : 0}</span></div>}
+      {kind === "google-play" && <div><strong>{text(item.coins_credited, "0")} coins</strong> · {text(item.product_id)} · {text(item.purchase_state)} / {text(item.consumption_state)}{item.verification_error ? <p className="muted">{text(item.verification_error)}</p> : null}</div>}
+      {kind === "reports" && <div><strong>{text(item.reason)}</strong><div className="muted">Reporter {text(item.reporter_id)} → Reported {text(item.reported_id)} · {text(item.reporter_role)} → {text(item.reported_role)}</div></div>}
+      {kind === "violations" && <div><strong>{text(item.violation_type)}</strong><div className="muted">{text(item.reason)} · Confidence {item.confidence == null ? "—" : `${Math.round(Number(item.confidence) * 100)}%`}</div></div>}
+      {kind === "host-verification" && <div style={{ display: "grid", gap: ".6rem" }}><span>Host {text(item.host_id)} · Photo {text(item.photo_number)}</span>{item.verification_url && <img src={String(item.verification_url)} alt={`Host verification photo ${text(item.photo_number)}`} style={{ width: "100%", maxWidth: 320, maxHeight: 420, objectFit: "cover", borderRadius: 14, border: "1px solid var(--line)" }} />}</div>}
+      {kind === "earnings" && <div><strong>{text(item.earned_coins, "0")} earned coins</strong> · Gross {text(item.gross_coins, "0")} · Share {text(item.share_percent, "0")}%<div className="muted">Host {text(item.host_id)} · Source {text(item.source_type)} · Interval {text(item.billing_interval)}</div></div>}
+      {kind === "video" && <div><strong>{text(item.room_name)}</strong> · {text(item.duration_seconds, "0")} sec · {text(item.coins_charged, "0")} coins<div className="muted">Status {text(item.status)} · Moderation {text(item.moderation_status)} · Reconciliation {text(item.reconciliation_status)}</div></div>}
+      {kind === "audit" && <div><strong>{text(item.action)}</strong><div className="muted">{text(item.target_type)} · {text(item.target_id)} · Admin {text(item.admin_id)}</div>{item.reason ? <div className="muted">Reason: {text(item.reason)}</div> : null}</div>}
+      {(kind === "users" || kind === "hosts") && <div><span className="muted">Role: {text(item.role)} · Account: {text(item.account_status)}</span></div>}
+      <div className="form-footer">{actions(item)}</div>
+    </article>;
   }
 
+  const selectId = `admin-queue-${initialKind || "main"}`;
   return <section className="choice-card" style={{ display: "grid", gap: "1rem" }}>
-    <div className="form-footer" style={{ alignItems: "center" }}>
-      <label htmlFor="admin-queue">Operations</label>
-      <select id="admin-queue" value={kind} onChange={(event) => { setKind(event.target.value as Kind); setPage(1); setSearch(""); }}>
-        {(Object.keys(labels) as Kind[]).map((key) => <option key={key} value={key}>{labels[key]}</option>)}
-      </select>
-      {(kind === "users" || kind === "hosts") && <input aria-label="Search queue" placeholder="Search email or name" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} />}
-    </div>
+    <div className="form-footer" style={{ alignItems: "center" }}><label htmlFor={selectId}>Operations</label><select id={selectId} value={kind} onChange={(event) => { setKind(event.target.value as Kind); setPage(1); setSearch(""); }}>{(Object.keys(labels) as Kind[]).map((key) => <option key={key} value={key}>{labels[key]}</option>)}</select>{(kind === "users" || kind === "hosts") && <input aria-label="Search queue" placeholder="Search email or name" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} />}</div>
     {loading ? <Loading label="Loading admin operations" /> : error ? <p role="alert" className="muted">{error}</p> : items.length ? <div style={{ display: "grid", gap: ".75rem" }}>{items.map(renderItem)}</div> : <p className="muted">No records in this queue.</p>}
     <div className="form-footer"><Button type="button" variant="quiet" disabled={page <= 1 || loading} onClick={() => setPage((current) => current - 1)}>Previous</Button><span className="muted">Page {page} · {total} records</span><Button type="button" variant="quiet" disabled={page * 25 >= total || loading} onClick={() => setPage((current) => current + 1)}>Next</Button></div>
   </section>;
