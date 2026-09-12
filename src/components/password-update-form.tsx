@@ -10,6 +10,7 @@ export function PasswordUpdateForm({ mode }: { mode: "user" | "host" | "admin" }
   const router = useRouter();
   const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
   const getSupabase = () => (supabaseRef.current ??= createClient());
+
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [message, setMessage] = useState("");
@@ -19,9 +20,11 @@ export function PasswordUpdateForm({ mode }: { mode: "user" | "host" | "admin" }
   useEffect(() => {
     let mounted = true;
     const supabase = getSupabase();
+    let timeout: ReturnType<typeof setTimeout> | undefined;
 
     const markReady = () => {
       if (!mounted) return;
+      if (timeout) clearTimeout(timeout);
 
       window.history.replaceState(
         null,
@@ -31,26 +34,34 @@ export function PasswordUpdateForm({ mode }: { mode: "user" | "host" | "admin" }
 
       setReady(true);
       setLoading(false);
+      setMessage("");
     };
 
-    const failRecovery = () => {
+    const markInvalid = () => {
       if (!mounted) return;
-      setMessage("This reset link is invalid or expired. Please request a new one.");
       setReady(false);
       setLoading(false);
+      setMessage(
+        "This reset link is invalid or expired. Please request a new reset link."
+      );
     };
 
-    const { data } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "PASSWORD_RECOVERY" && session) {
-        markReady();
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (!mounted) return;
+
+        if (
+          session &&
+          (event === "PASSWORD_RECOVERY" ||
+            event === "INITIAL_SESSION" ||
+            event === "SIGNED_IN")
+        ) {
+          markReady();
+        }
       }
-    });
+    );
 
-    const prepare = async () => {
-      setLoading(true);
-      setMessage("");
-
-      // Supabase may already have processed the recovery URL.
+    const bootstrap = async () => {
       const { data: sessionData } = await supabase.auth.getSession();
 
       if (!mounted) return;
@@ -60,57 +71,137 @@ export function PasswordUpdateForm({ mode }: { mode: "user" | "host" | "admin" }
         return;
       }
 
-      // Fallback for the implicit recovery flow where the tokens are
-      // still present in the URL hash.
       const fragment = new URLSearchParams(
         window.location.hash.replace(/^#/, "")
       );
 
+      const type = fragment.get("type");
       const accessToken = fragment.get("access_token");
       const refreshToken = fragment.get("refresh_token");
-      const type = fragment.get("type");
 
       if (type === "recovery" && accessToken && refreshToken) {
-        const { data: recoveryData, error } = await supabase.auth.setSession({
+        const { data, error } = await supabase.auth.setSession({
           access_token: accessToken,
           refresh_token: refreshToken,
         });
 
         if (!mounted) return;
 
-        if (!error && recoveryData.session) {
+        if (data.session && !error) {
           markReady();
           return;
         }
       }
 
-      // Give Supabase auth-state processing a moment before declaring
-      // the link invalid, avoiding the initialization race.
+      timeout = setTimeout(() => {
+        if (!mounted) return;
 
+        supabase.auth.getSession().then(({ data }) => {
+          if (data.session) {
+            markReady();
+          } else {
+            markInvalid();
+          }
+        });
+      }, 4000);
     };
 
-    void prepare();
+    void bootstrap();
 
     return () => {
       mounted = false;
-      data.subscription.unsubscribe();
+      if (timeout) clearTimeout(timeout);
+      authListener.subscription.unsubscribe();
     };
   }, []);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
-      event.preventDefault();
+    event.preventDefault();
+    setMessage("");
+
     if (!ready) return;
-    if (password.length < 8 || password !== confirmPassword) {
-      setMessage("Use at least 8 characters and make both passwords match.");
+
+    if (password.length < 8) {
+      setMessage("Password must be at least 8 characters.");
       return;
     }
+
+    if (password !== confirmPassword) {
+      setMessage("Passwords do not match.");
+      return;
+    }
+
     setLoading(true);
-    setMessage("");
-    const { error } = await getSupabase().auth.updateUser({ password });
-    if (error) { setMessage(error.message); setLoading(false); return; }
+
+    const { error } = await getSupabase().auth.updateUser({
+      password,
+    });
+
+    if (error) {
+      setMessage(error.message);
+      setLoading(false);
+      return;
+    }
+
     await getSupabase().auth.signOut();
     router.replace(`/auth/${mode}/sign-in?reset=complete`);
   }
 
-  return <main className="auth-page"><div className="auth-flow-nav"><BackControl /></div><section className="form-card" style={{ maxWidth: "32rem", width: "100%", margin: "auto" }}><span className="eyebrow">{mode} access</span><h2>Choose a new password</h2><form onSubmit={submit}><Input id="password" label="New password" type="password" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} required minLength={8} /><Input id="confirm-password" label="Confirm new password" type="password" autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} required minLength={8} />{message && <p className="muted" role="alert">{message}</p>}<Button type="submit" disabled={loading || !ready}>{loading ? "Preparing…" : "Update password"}</Button></form></section></main>;
+  return (
+    <main className="auth-page">
+      <div className="auth-flow-nav">
+        <BackControl />
+      </div>
+
+      <section
+        className="form-card"
+        style={{ maxWidth: "32rem", width: "100%", margin: "auto" }}
+      >
+        <span className="eyebrow">{mode} access</span>
+        <h2>Choose a new password</h2>
+
+        {loading && (
+          <p className="muted" role="status">
+            Preparing secure password reset…
+          </p>
+        )}
+
+        <form onSubmit={submit}>
+          <Input
+            id="password"
+            label="New password"
+            type="password"
+            autoComplete="new-password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            required
+            minLength={8}
+            disabled={!ready || loading}
+          />
+
+          <Input
+            id="confirm-password"
+            label="Confirm new password"
+            type="password"
+            autoComplete="new-password"
+            value={confirmPassword}
+            onChange={(event) => setConfirmPassword(event.target.value)}
+            required
+            minLength={8}
+            disabled={!ready || loading}
+          />
+
+          {message && (
+            <p className="muted" role="alert">
+              {message}
+            </p>
+          )}
+
+          <Button type="submit" disabled={loading || !ready}>
+            {loading ? "Preparing…" : "Update password"}
+          </Button>
+        </form>
+      </section>
+    </main>
+  );
 }
