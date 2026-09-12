@@ -18,29 +18,94 @@ export function PasswordUpdateForm({ mode }: { mode: "user" | "host" | "admin" }
 
   useEffect(() => {
     let mounted = true;
-    const prepare = async () => {
-      const { data } = await getSupabase().auth.getSession();
-      if (data.session) {
-        if (mounted) { setReady(true); setLoading(false); }
-        return;
-      }
-      const fragment = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-      const accessToken = fragment.get("access_token");
-      const refreshToken = fragment.get("refresh_token");
-      if (!accessToken || !refreshToken || fragment.get("type") !== "recovery") {
-        if (mounted) { setMessage("This reset link is invalid or expired. Please request a new one."); setLoading(false); }
-        return;
-      }
-      const { error } = await getSupabase().auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+    const supabase = getSupabase();
+
+    const markReady = () => {
       if (!mounted) return;
-      if (error) { setMessage("This reset link is invalid or expired. Please request a new one."); setLoading(false); return; }
-      window.history.replaceState(null, "", window.location.pathname + window.location.search);
+
+      window.history.replaceState(
+        null,
+        "",
+        window.location.pathname + window.location.search
+      );
+
       setReady(true);
       setLoading(false);
     };
+
+    const failRecovery = () => {
+      if (!mounted) return;
+      setMessage("This reset link is invalid or expired. Please request a new one.");
+      setReady(false);
+      setLoading(false);
+    };
+
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY" && session) {
+        markReady();
+      }
+    });
+
+    const prepare = async () => {
+      setLoading(true);
+      setMessage("");
+
+      // Supabase may already have processed the recovery URL.
+      const { data: sessionData } = await supabase.auth.getSession();
+
+      if (!mounted) return;
+
+      if (sessionData.session) {
+        markReady();
+        return;
+      }
+
+      // Fallback for the implicit recovery flow where the tokens are
+      // still present in the URL hash.
+      const fragment = new URLSearchParams(
+        window.location.hash.replace(/^#/, "")
+      );
+
+      const accessToken = fragment.get("access_token");
+      const refreshToken = fragment.get("refresh_token");
+      const type = fragment.get("type");
+
+      if (type === "recovery" && accessToken && refreshToken) {
+        const { data: recoveryData, error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+
+        if (!mounted) return;
+
+        if (!error && recoveryData.session) {
+          markReady();
+          return;
+        }
+      }
+
+      // Give Supabase auth-state processing a moment before declaring
+      // the link invalid, avoiding the initialization race.
+      window.setTimeout(async () => {
+        if (!mounted) return;
+
+        const { data: finalSession } = await supabase.auth.getSession();
+
+        if (finalSession.session) {
+          markReady();
+        } else {
+          failRecovery();
+        }
+      }, 1000);
+    };
+
     void prepare();
-    return () => { mounted = false; };
-  }, [])
+
+    return () => {
+      mounted = false;
+      data.subscription.unsubscribe();
+    };
+  }, []);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
       event.preventDefault();
