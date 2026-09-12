@@ -780,3 +780,130 @@ footer {
 .photo-remove-button {
   margin-top: 8px;
 }
+
+/* =========================================================
+   ISHQIYA ADMIN AUTH — production UI
+   Scoped only to /auth/admin/*
+   ========================================================= */
+
+.admin-auth-shell {
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  padding: 32px 20px;
+  background:
+    radial-gradient(circle at 15% 15%, rgba(236,72,153,.16), transparent 34%),
+    radial-gradient(circle at 85% 85%, rgba(139,92,246,.13), transparent 34%),
+    #080812;
+}
+
+.admin-auth-shell > * {
+  width: min(100%, 460px);
+}
+
+.admin-auth-shell section,
+.admin-auth-shell main {
+  width: 100%;
+}
+
+.admin-auth-shell form {
+  width: 100%;
+  padding: 34px;
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 24px;
+  background: rgba(20,20,32,.88);
+  box-shadow:
+    0 30px 80px rgba(0,0,0,.45),
+    inset 0 1px 0 rgba(255,255,255,.05);
+  backdrop-filter: blur(18px);
+}
+
+.admin-auth-shell form > div:first-child {
+  margin-bottom: 28px;
+}
+
+.admin-auth-shell label {
+  display: block;
+  margin-bottom: 8px;
+  color: #d7d4df;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: .01em;
+}
+
+.admin-auth-shell input:not([type="checkbox"]):not([type="file"]) {
+  width: 100%;
+  min-height: 50px;
+  padding: 0 15px;
+  border: 1px solid rgba(255,255,255,.13);
+  border-radius: 13px;
+  outline: none;
+  background: rgba(255,255,255,.055);
+  color: #fff;
+  font-size: 15px;
+  transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
+}
+
+.admin-auth-shell input:not([type="checkbox"]):not([type="file"]):focus {
+  border-color: rgba(236,72,153,.75);
+  background: rgba(255,255,255,.075);
+  box-shadow: 0 0 0 4px rgba(236,72,153,.10);
+}
+
+.admin-auth-shell input::placeholder {
+  color: rgba(255,255,255,.36);
+}
+
+.admin-auth-shell button[type="submit"] {
+  width: 100%;
+  min-height: 52px;
+  margin-top: 18px;
+  border: 0;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #ec4899, #a855f7);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 12px 28px rgba(168,85,247,.22);
+  transition: transform .18s ease, filter .18s ease;
+}
+
+.admin-auth-shell button[type="submit"]:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+
+.admin-auth-shell button[type="submit"]:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.admin-auth-shell a {
+  color: #f472b6;
+  text-decoration: none;
+}
+
+.admin-auth-shell a:hover {
+  text-decoration: underline;
+}
+
+.admin-auth-shell .form-footer {
+  display: flex;
+  justify-content: center;
+  margin-top: 18px;
+  font-size: 14px;
+}
+
+@media (max-width: 520px) {
+  .admin-auth-shell {
+    padding: 20px 14px;
+  }
+
+  .admin-auth-shell form {
+    padding: 25px 20px;
+    border-radius: 20px;
+  }
+}
+
