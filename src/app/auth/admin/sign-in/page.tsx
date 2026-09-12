@@ -52,19 +52,19 @@ export default function AdminSignIn() {
           <p>Sign in to manage users, hosts, payments, moderation and platform settings.</p>
         </div>
         <form onSubmit={submit} className="admin-login-form" autoComplete="off">
-          <div className="admin-field">
+          <div className="admin-field" style={{marginBottom:"20px"}}>
             <label htmlFor="admin-email">Admin email</label>
-            <input id="admin-email" name="admin-console-email" type="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Enter admin email" autoComplete="off" required />
+            <input style={{width:"100%",boxSizing:"border-box",padding:"14px 16px",marginTop:"8px",borderRadius:"12px",border:"1px solid #3a3a42",background:"#111116",color:"#fff",fontSize:"16px",outline:"none"}} id="admin-email" name="admin-console-email" type="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Enter admin email" autoComplete="off" required />
           </div>
-          <div className="admin-field">
+          <div className="admin-field" style={{marginBottom:"20px"}}>
             <label htmlFor="admin-password">Password</label>
-            <input id="admin-password" name="admin-console-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter your password" autoComplete="new-password" required />
+            <input style={{width:"100%",boxSizing:"border-box",padding:"14px 16px",marginTop:"8px",borderRadius:"12px",border:"1px solid #3a3a42",background:"#111116",color:"#fff",fontSize:"16px",outline:"none"}} id="admin-password" name="admin-console-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter your password" autoComplete="new-password" required />
           </div>
           {error && <p className="admin-login-error" role="alert">{error}</p>}
-          <button className="admin-login-submit" type="submit" disabled={loading}>{loading ? "Verifying access…" : "Sign in to Admin"}</button>
+          <button style={{width:"100%",padding:"15px 18px",border:0,borderRadius:"12px",background:"linear-gradient(135deg,#e11d48,#be123c)",color:"#fff",fontWeight:700,fontSize:"16px",cursor:"pointer",marginTop:"6px"}} className="admin-login-submit" type="submit" disabled={loading}>{loading ? "Verifying access…" : "Sign in to Admin"}</button>
           <Link className="admin-forgot-link" href="/auth/admin/forgot-password">Forgot password? <span>Reset it securely →</span></Link>
         </form>
-        <div className="admin-login-footer"><span>🔒 Protected administration</span><span>ISHQIYA</span></div>
+        <div className="admin-login-footer" style={{marginTop:"28px",paddingTop:"20px",borderTop:"1px solid rgba(255,255,255,.08)",display:"flex",justifyContent:"space-between",fontSize:"13px",color:"#9ca3af"}}><span>🔒 Protected administration</span><span>ISHQIYA</span></div>
       </section>
     </main>
   );
