@@ -1,24 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
-
 export default function AdminRecoveryBridge() {
-  const [ready, setReady] = useState(false);
-  const [url, setUrl] = useState("");
-
-  useEffect(() => {
-    const value = window.location.hash.startsWith("#u=")
-      ? decodeURIComponent(window.location.hash.slice(3))
-      : "";
-
-    if (value && /^https:\/\/[^/]+\.supabase\.co\//i.test(value)) {
-      setUrl(value);
-      setReady(true);
-    }
-  }, []);
-
   function continueRecovery() {
-    if (url) window.location.assign(url);
+    let value = "";
+
+    try {
+      value = window.location.hash.startsWith("#u=")
+        ? decodeURIComponent(window.location.hash.slice(3))
+        : "";
+    } catch {
+      value = "";
+    }
+
+    if (!/^https:\/\/[^/]+\.supabase\.co\/auth\/v1\/verify\?/i.test(value)) {
+      window.alert("Invalid or expired recovery link.");
+      return;
+    }
+
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+    window.location.href = value;
   }
 
   return (
@@ -33,14 +33,8 @@ export default function AdminRecoveryBridge() {
           For security, the recovery link is opened only after you press the
           button below.
         </p>
-
-        <button
-          className="button"
-          type="button"
-          disabled={!ready}
-          onClick={continueRecovery}
-        >
-          {ready ? "Continue securely" : "Preparing secure link…"}
+        <button className="button" type="button" onClick={continueRecovery}>
+          Continue securely
         </button>
       </section>
     </main>

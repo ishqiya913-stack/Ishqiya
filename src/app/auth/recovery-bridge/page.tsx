@@ -1,7 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
-
 const ALLOWED_NEXT = new Set([
   "/auth/admin/reset-password",
   "/auth/host/reset-password",
@@ -9,37 +7,48 @@ const ALLOWED_NEXT = new Set([
 ]);
 
 export default function RecoveryBridge() {
-  const [url, setUrl] = useState("");
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
+  function continueRecovery() {
     const params = new URLSearchParams(window.location.search);
     const requestedNext = params.get("next") || "";
-    const value = window.location.hash.startsWith("#u=")
-      ? decodeURIComponent(window.location.hash.slice(3))
-      : "";
 
-    if (!ALLOWED_NEXT.has(requestedNext)) return;
-    if (!/^https:\/\/[^/]+\.supabase\.co\/auth\/v1\/verify\?/i.test(value)) return;
+    let value = "";
 
-    setUrl(value);
-    setReady(true);
-  }, []);
+    try {
+      value = window.location.hash.startsWith("#u=")
+        ? decodeURIComponent(window.location.hash.slice(3))
+        : "";
+    } catch {
+      value = "";
+    }
 
-  function continueRecovery() {
-    if (url) window.location.assign(url);
+    if (!ALLOWED_NEXT.has(requestedNext)) {
+      window.alert("Invalid recovery link.");
+      return;
+    }
+
+    if (!/^https:\/\/[^/]+\.supabase\.co\/auth\/v1\/verify\?/i.test(value)) {
+      window.alert("Invalid or expired recovery link.");
+      return;
+    }
+
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+    window.location.href = value;
   }
 
   return (
     <main className="auth-page">
-      <section className="form-card" style={{ maxWidth: "32rem", width: "100%", margin: "auto" }}>
+      <section
+        className="form-card"
+        style={{ maxWidth: "32rem", width: "100%", margin: "auto" }}
+      >
         <span className="eyebrow">ISHQIYA SECURITY</span>
         <h2>Continue password recovery</h2>
         <p className="muted">
-          For security, the recovery link is activated only after you press the button below.
+          For security, the recovery link is activated only after you press
+          the button below.
         </p>
-        <button className="button" type="button" disabled={!ready} onClick={continueRecovery}>
-          {ready ? "Continue securely" : "Preparing secure link…"}
+        <button className="button" type="button" onClick={continueRecovery}>
+          Continue securely
         </button>
       </section>
     </main>
