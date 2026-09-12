@@ -70,6 +70,11 @@ export async function POST(request: Request) {
       auth,
     });
 
+    /*
+     * Always verify the purchase directly with Google Play.
+     * The client is never trusted for purchase state, price, coins,
+     * order ID, package name, or purchase time.
+     */
     const result = await publisher.purchases.products.get({
       packageName: PACKAGE_NAME,
       productId,
@@ -100,6 +105,11 @@ export async function POST(request: Request) {
       packageName: PACKAGE_NAME,
     };
 
+    /*
+     * The database RPC is authoritative for crediting coins.
+     * It must be idempotent so the same Google purchase token
+     * cannot credit the wallet twice.
+     */
     const { data: balance, error: creditError } = await admin.rpc(
       "ishqiya_process_google_play_purchase",
       {
@@ -109,7 +119,9 @@ export async function POST(request: Request) {
         p_order_id: purchase.orderId ?? null,
         p_package_name: PACKAGE_NAME,
         p_purchase_time: purchase.purchaseTimeMillis
-          ? new Date(Number(purchase.purchaseTimeMillis)).toISOString()
+          ? new Date(
+              Number(purchase.purchaseTimeMillis)
+            ).toISOString()
           : null,
         p_raw_purchase: rawPurchase,
         p_coins: coins,
@@ -128,17 +140,32 @@ export async function POST(request: Request) {
       );
     }
 
-    // Consumable products must be consumed so they can be purchased again.
-    if (purchase.consumptionState !== 1) {
+    /*
+     * Consumable products must be consumed before they can be
+     * purchased again.
+     *
+     * IMPORTANT:
+     * Only mark the database as consumed after Google Play
+     * confirms the consume operation succeeded.
+     */
+    let consumed = purchase.consumptionState === 1;
+
+    if (!consumed) {
       try {
         await publisher.purchases.products.consume({
           packageName: PACKAGE_NAME,
           productId,
           token: purchaseToken,
         });
+
+        consumed = true;
       } catch (consumeError) {
-        // Coins have already been credited idempotently.
-        // Reconciliation can retry consumption later.
+        /*
+         * Coins have already been credited idempotently.
+         * Do NOT falsely mark the purchase as consumed.
+         *
+         * A later reconciliation process can retry consumption.
+         */
         console.error(
           "Google Play consumption pending:",
           consumeError instanceof Error
@@ -148,20 +175,43 @@ export async function POST(request: Request) {
       }
     }
 
-    await admin
+    const purchaseUpdate: {
+      purchase_state: string;
+      consumption_state: string;
+      consumed_at?: string;
+      updated_at: string;
+    } = {
+      purchase_state: "purchased",
+      consumption_state: consumed ? "consumed" : "pending",
+      updated_at: new Date().toISOString(),
+    };
+
+    if (consumed) {
+      purchaseUpdate.consumed_at = new Date().toISOString();
+    }
+
+    const { error: updateError } = await admin
       .from("google_play_purchases")
-      .update({
-        purchase_state: "purchased",
-        consumption_state: "consumed",
-        consumed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
+      .update(purchaseUpdate)
       .eq("purchase_token", purchaseToken);
+
+    if (updateError) {
+      console.error(
+        "Google Play purchase status update failed:",
+        updateError.message
+      );
+
+      /*
+       * Do not reverse the already verified ledger credit.
+       * The purchase remains recoverable through reconciliation.
+       */
+    }
 
     return NextResponse.json({
       success: true,
       coins,
       balance,
+      consumed,
     });
   } catch (error) {
     console.error(

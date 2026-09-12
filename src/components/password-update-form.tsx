@@ -86,17 +86,7 @@ export function PasswordUpdateForm({ mode }: { mode: "user" | "host" | "admin" }
 
       // Give Supabase auth-state processing a moment before declaring
       // the link invalid, avoiding the initialization race.
-      window.setTimeout(async () => {
-        if (!mounted) return;
 
-        const { data: finalSession } = await supabase.auth.getSession();
-
-        if (finalSession.session) {
-          markReady();
-        } else {
-          failRecovery();
-        }
-      }, 1000);
     };
 
     void prepare();
