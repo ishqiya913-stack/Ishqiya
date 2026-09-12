@@ -26,7 +26,7 @@ export function AuthResetForm({ mode }: { mode: "user" | "host" | "admin" }) {
     }
 
     const next = `/auth/${mode}/reset-password`;
-    const redirectTo = `${window.location.origin}/auth/confirm?next=${encodeURIComponent(next)}`;
+    const redirectTo = `${window.location.origin}/auth/recovery-bridge?next=${encodeURIComponent(next)}`;
     const { error } = await supabase.auth.resetPasswordForEmail(normalized, { redirectTo });
 
     setMessage(error ? error.message : "If an account exists for that email, a reset link is on its way.");
