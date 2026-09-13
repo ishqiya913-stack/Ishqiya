@@ -27,25 +27,13 @@ export async function POST(request: Request) {
   let packageError: { message: string } | null = null;
 
   if (body.packageId) {
-    const result = await admin
-      .from("coin_packages")
-      .select("id, coins, price_rupees")
-      .eq("id", body.packageId)
-      .eq("is_active", true)
-      .maybeSingle();
+    const result = await admin.from("coin_packages").select("id, coins, price_rupees").eq("id", body.packageId).eq("is_active", true).maybeSingle();
     packageRow = result.data;
     packageError = result.error;
   }
 
-  // A stale client can hold a package UUID from an older database snapshot.
-  // Resolve it safely by the server-owned coin amount as a compatibility fallback.
   if (!packageRow && Number.isFinite(Number(body.coins))) {
-    const result = await admin
-      .from("coin_packages")
-      .select("id, coins, price_rupees")
-      .eq("coins", Number(body.coins))
-      .eq("is_active", true)
-      .maybeSingle();
+    const result = await admin.from("coin_packages").select("id, coins, price_rupees").eq("coins", Number(body.coins)).eq("is_active", true).maybeSingle();
     packageRow = result.data;
     packageError = result.error;
   }
@@ -62,18 +50,31 @@ export async function POST(request: Request) {
   const transactionRef = orderId.replaceAll("-", "").slice(0, 35);
   const noteRef = transactionRef.slice(-12);
   const merchantCode = process.env.ISHQIYA_UPI_MCC?.trim();
-  const payeeName = process.env.ISHQIYA_UPI_PAYEE_NAME?.trim() || "Ishqiya";
-  const upiParams = new URLSearchParams({
+  const configuredPayeeName = process.env.ISHQIYA_UPI_PAYEE_NAME?.trim();
+
+  // Merchant-style intent is used only when the server has an actual MCC and
+  // configured merchant/payee name. Otherwise keep a clean generic UPI intent
+  // for a VPA, which also provides a fallback for personal UPI accounts.
+  const merchantParams = new URLSearchParams({
     pa: upiId,
-    pn: payeeName,
+    pn: configuredPayeeName || "Ishqiya",
     tr: transactionRef,
     tn: `Ishqiya ${noteRef}`,
     am: amountRupees.toFixed(2),
     cu: "INR",
   });
-  if (merchantCode) upiParams.set("mc", merchantCode);
+  if (merchantCode) merchantParams.set("mc", merchantCode);
 
-  const upiUri = `upi://pay?${upiParams.toString()}`;
+  const simpleParams = new URLSearchParams({
+    pa: upiId,
+    am: amountRupees.toFixed(2),
+    cu: "INR",
+    tn: `Ishqiya ${noteRef}`,
+  });
+
+  const upiUri = `upi://pay?${merchantParams.toString()}`;
+  const simpleUpiUri = `upi://pay?${simpleParams.toString()}`;
+
   const { data: order, error } = await admin.from("payment_orders").insert({
     id: orderId,
     user_id: user.id,
@@ -85,9 +86,5 @@ export async function POST(request: Request) {
   }).select("id, coins, expected_amount_paise, upi_uri, status, expires_at").single();
 
   if (error) return NextResponse.json({ error: "Payment order could not be created." }, { status: 500 });
-  return NextResponse.json({
-    order,
-    upiId,
-    payeeName,
-  });
+  return NextResponse.json({ order, simpleUpiUri, upiId, payeeName: configuredPayeeName || null });
 }
