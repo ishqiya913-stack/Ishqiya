@@ -5,6 +5,13 @@ import { createAdminClient } from "@/lib/supabase/admin";
 const allowedKinds = ["payments", "reports", "violations", "host-verification", "users", "hosts"] as const;
 type QueueKind = (typeof allowedKinds)[number];
 
+type HostProfile = {
+  approval_status: string;
+  is_active: boolean;
+  is_visible: boolean;
+  is_discoverable: boolean;
+};
+
 export async function GET(request: Request) {
   await requireAdmin();
   const url = new URL(request.url);
@@ -21,7 +28,8 @@ export async function GET(request: Request) {
   else if (kind === "reports") query = admin.from("reports").select("id,reporter_id,reported_id,reporter_role,reported_role,reason,status,created_at", { count: "exact" }).order("created_at", { ascending: false });
   else if (kind === "violations") query = admin.from("violations").select("id,account_id,account_role,source_type,violation_type,confidence,status,reason,created_at", { count: "exact" }).order("created_at", { ascending: false });
   else if (kind === "host-verification") query = admin.from("host_verification_photos").select("id,host_id,photo_number,status,storage_path,created_at", { count: "exact" }).order("created_at", { ascending: false });
-  else query = admin.from("profiles").select("id,email,display_name,role,account_status,created_at", { count: "exact" }).eq("role", kind === "users" ? "user" : "host").order("created_at", { ascending: false });
+  else if (kind === "hosts") query = admin.from("profiles").select("id,email,display_name,role,account_status,created_at,host_profiles(approval_status,is_active,is_visible,is_discoverable)", { count: "exact" }).eq("role", "host").order("created_at", { ascending: false });
+  else query = admin.from("profiles").select("id,email,display_name,role,account_status,created_at", { count: "exact" }).eq("role", "user").order("created_at", { ascending: false });
   if (search && (kind === "users" || kind === "hosts")) query = query.or(`email.ilike.%${search}%,display_name.ilike.%${search}%`);
   const { data, count, error } = await query.range(from, to);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -34,6 +42,18 @@ export async function GET(request: Request) {
       }
       const { data: attempts } = await admin.from("payment_verifications").select("id,status,utr,transaction_id,fraud_flags,fraud_reason,attempt_number,created_at").eq("order_id", item.order_id).neq("id", item.id).order("created_at", { ascending: false });
       item.related_attempts = attempts || [];
+    }
+  }
+  if (kind === "hosts") {
+    for (const item of items as Array<Record<string, unknown>>) {
+      const hostProfile = item.host_profiles as HostProfile | HostProfile[] | null | undefined;
+      const profile = Array.isArray(hostProfile) ? hostProfile[0] : hostProfile;
+      delete item.host_profiles;
+      item.approval_status = profile?.approval_status;
+      item.is_active = profile?.is_active ?? false;
+      item.is_visible = profile?.is_visible ?? false;
+      item.is_discoverable = profile?.is_discoverable ?? false;
+      item.host_profile_exists = Boolean(profile);
     }
   }
   return NextResponse.json({ items, total: count || 0, page, pageSize });
