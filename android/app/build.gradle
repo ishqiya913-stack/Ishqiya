@@ -18,7 +18,7 @@ android {
     }
     signingConfigs {
         release {
-            storeFile file(System.getenv("ISHQIYA_KEYSTORE_PATH") ?: "")
+            storeFile file(System.getenv("ISHQIYA_KEYSTORE_PATH") ?: "/home/codespace/ishqiya-release.jks")
             storePassword System.getenv("ISHQIYA_STORE_PASSWORD")
             keyAlias "ishqiya"
             keyPassword System.getenv("ISHQIYA_KEY_PASSWORD")
