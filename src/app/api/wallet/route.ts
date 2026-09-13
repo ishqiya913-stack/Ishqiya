@@ -17,16 +17,39 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const { user } = await requireRole("user");
-  const body = await request.json() as { packageId?: string };
-  if (!body.packageId) return NextResponse.json({ error: "Select a coin package." }, { status: 400 });
+  const body = await request.json() as { packageId?: string; coins?: number };
+  if (!body.packageId && !Number.isFinite(Number(body.coins))) {
+    return NextResponse.json({ error: "Select a coin package." }, { status: 400 });
+  }
 
   const admin = createAdminClient();
-  const { data: packageRow, error: packageError } = await admin
-    .from("coin_packages")
-    .select("id, coins, price_rupees")
-    .eq("id", body.packageId)
-    .eq("is_active", true)
-    .maybeSingle();
+  let packageRow: { id: string; coins: number; price_rupees: number } | null = null;
+  let packageError: { message: string } | null = null;
+
+  if (body.packageId) {
+    const result = await admin
+      .from("coin_packages")
+      .select("id, coins, price_rupees")
+      .eq("id", body.packageId)
+      .eq("is_active", true)
+      .maybeSingle();
+    packageRow = result.data;
+    packageError = result.error;
+  }
+
+  // A stale client can hold a package UUID from an older database snapshot.
+  // Resolve it safely by the server-owned coin amount as a compatibility fallback.
+  if (!packageRow && Number.isFinite(Number(body.coins))) {
+    const result = await admin
+      .from("coin_packages")
+      .select("id, coins, price_rupees")
+      .eq("coins", Number(body.coins))
+      .eq("is_active", true)
+      .maybeSingle();
+    packageRow = result.data;
+    packageError = result.error;
+  }
+
   if (packageError || !packageRow) return NextResponse.json({ error: "That package is unavailable." }, { status: 400 });
 
   const upiId = process.env.ISHQIYA_UPI_ID?.trim();
@@ -40,11 +63,6 @@ export async function POST(request: Request) {
   const noteRef = transactionRef.slice(-12);
   const merchantCode = process.env.ISHQIYA_UPI_MCC?.trim();
   const payeeName = process.env.ISHQIYA_UPI_PAYEE_NAME?.trim() || "Ishqiya";
-
-  // Use the complete UPI deep-link parameter set for a merchant-style payment.
-  // pa = beneficiary VPA, pn = displayed/registered payee name,
-  // tr = unique merchant reference, am = locked order amount.
-  // MCC is included when the acquiring bank has supplied one.
   const upiParams = new URLSearchParams({
     pa: upiId,
     pn: payeeName,
@@ -67,5 +85,9 @@ export async function POST(request: Request) {
   }).select("id, coins, expected_amount_paise, upi_uri, status, expires_at").single();
 
   if (error) return NextResponse.json({ error: "Payment order could not be created." }, { status: 500 });
-  return NextResponse.json({ order });
+  return NextResponse.json({
+    order,
+    upiId,
+    payeeName,
+  });
 }
