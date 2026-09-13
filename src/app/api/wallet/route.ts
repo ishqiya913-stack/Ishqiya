@@ -24,10 +24,23 @@ export async function POST(request: Request) {
   if (packageError || !packageRow) return NextResponse.json({ error: "That package is unavailable." }, { status: 400 });
   const upiId = process.env.ISHQIYA_UPI_ID?.trim();
   if (!upiId) return NextResponse.json({ error: "UPI payments are not configured on the server." }, { status: 503 });
+  const payeeName = process.env.ISHQIYA_UPI_PAYEE_NAME?.trim() || "Ishqiya";
+  const merchantCode = process.env.ISHQIYA_UPI_MCC?.trim();
   const amountRupees = Number(packageRow.price_rupees);
   if (!Number.isFinite(amountRupees) || amountRupees <= 0) return NextResponse.json({ error: "Coin package price is invalid." }, { status: 500 });
   const orderId = crypto.randomUUID();
-  const upiUri = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=Ishqiya&am=${amountRupees.toFixed(2)}&cu=INR&tn=${encodeURIComponent(`Ishqiya ${orderId}`)}`;
+  const transactionRef = orderId.replaceAll("-", "");
+  const noteRef = transactionRef.slice(-12);
+  const upiParams = new URLSearchParams({
+    pa: upiId,
+    pn: payeeName,
+    tr: transactionRef,
+    tn: `Ishqiya ${noteRef}`,
+    am: amountRupees.toFixed(2),
+    cu: "INR",
+  });
+  if (merchantCode) upiParams.set("mc", merchantCode);
+  const upiUri = `upi://pay?${upiParams.toString()}`;
   const { data: order, error } = await admin.from("payment_orders").insert({
     id: orderId,
     user_id: user.id,
