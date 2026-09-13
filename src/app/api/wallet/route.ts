@@ -46,10 +46,11 @@ export async function POST(request: Request) {
   const noteRef = transactionRef.slice(-12);
   const merchantCode = process.env.ISHQIYA_UPI_MCC?.trim();
   const configuredPayeeName = process.env.ISHQIYA_UPI_PAYEE_NAME?.trim();
+  const payeeName = configuredPayeeName || "Ishqiya";
 
   const merchantParams = new URLSearchParams({
     pa: upiId,
-    pn: configuredPayeeName || "Ishqiya",
+    pn: payeeName,
     tr: transactionRef,
     tn: `Ishqiya ${noteRef}`,
     am: amountRupees.toFixed(2),
@@ -57,17 +58,21 @@ export async function POST(request: Request) {
   });
   if (merchantCode) merchantParams.set("mc", merchantCode);
 
+  // Keep the fallback compatible with standard UPI intent requirements too.
+  // Google Pay and NPCI expect the payee name and unique transaction reference
+  // for a merchant-style payment request; omitting them can produce bank-side
+  // validation/limit errors even when a direct VPA payment succeeds.
   const simpleParams = new URLSearchParams({
     pa: upiId,
+    pn: payeeName,
+    tr: transactionRef,
+    tn: `Ishqiya ${noteRef}`,
     am: amountRupees.toFixed(2),
     cu: "INR",
-    tn: `Ishqiya ${noteRef}`,
   });
 
   const merchantUpiUri = `upi://pay?${merchantParams.toString()}`;
   const simpleUpiUri = `upi://pay?${simpleParams.toString()}`;
-  // A personal VPA must not be presented as a merchant intent. Use the clean
-  // generic UPI intent unless both merchant identity and MCC are configured.
   const upiUri = merchantCode && configuredPayeeName ? merchantUpiUri : simpleUpiUri;
 
   const { data: order, error } = await admin.from("payment_orders").insert({
@@ -81,5 +86,5 @@ export async function POST(request: Request) {
   }).select("id, coins, expected_amount_paise, upi_uri, status, expires_at").single();
 
   if (error) return NextResponse.json({ error: "Payment order could not be created." }, { status: 500 });
-  return NextResponse.json({ order, simpleUpiUri, upiId, payeeName: configuredPayeeName || null });
+  return NextResponse.json({ order, simpleUpiUri, upiId, payeeName });
 }
