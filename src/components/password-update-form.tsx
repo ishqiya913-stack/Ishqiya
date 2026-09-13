@@ -62,6 +62,23 @@ export function PasswordUpdateForm({ mode }: { mode: "user" | "host" | "admin" }
     );
 
     const bootstrap = async () => {
+      // Supabase PKCE recovery links arrive with ?code=...
+      // Exchange the code here, in the same browser context that
+      // requested the reset email, so the stored PKCE verifier is available.
+      const code = new URLSearchParams(window.location.search).get("code");
+
+      if (code) {
+        const { data, error } =
+          await supabase.auth.exchangeCodeForSession(code);
+
+        if (!mounted) return;
+
+        if (data.session && !error) {
+          markReady();
+          return;
+        }
+      }
+
       const { data: sessionData } = await supabase.auth.getSession();
 
       if (!mounted) return;
