@@ -26,12 +26,22 @@ export async function GET(request: Request) {
   else if (kind === "earnings") query = admin.from("host_earnings").select("id,host_id,source_type,source_id,gross_coins,share_percent,earned_coins,billing_interval,created_at", { count: "exact" }).order("created_at", { ascending: false });
   else if (kind === "audit") query = admin.from("audit_logs").select("id,admin_id,action,target_type,target_id,before_data,after_data,reason,created_at", { count: "exact" }).order("created_at", { ascending: false });
   else if (kind === "video") query = admin.from("video_sessions").select("id,match_id,user_id,host_id,room_name,started_at,ended_at,duration_seconds,rate_per_minute,coins_charged,status,moderation_status,reconciliation_status,reconciliation_error,created_at", { count: "exact" }).order("created_at", { ascending: false });
-  else query = admin.from("profiles").select("id,email,display_name,role,account_status,created_at", { count: "exact" }).eq("role", kind === "users" ? "user" : "host").order("created_at", { ascending: false });
+  else if (kind === "hosts") query = admin.from("profiles").select("id,email,display_name,role,account_status,created_at,host_profiles(is_active,is_visible,is_discoverable,approval_status)", { count: "exact" }).eq("role", "host").order("created_at", { ascending: false });
+  else query = admin.from("profiles").select("id,email,display_name,role,account_status,created_at", { count: "exact" }).eq("role", "user").order("created_at", { ascending: false });
 
   if (search && (kind === "users" || kind === "hosts")) query = query.or(`email.ilike.%${search}%,display_name.ilike.%${search}%`);
   const { data, count, error } = await query.range(from, to);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  const items = data || [];
+  const items = (data || []).map((item) => {
+    if (kind !== "hosts") return item;
+    const hostProfile = Array.isArray((item as Record<string, unknown>).host_profiles)
+      ? ((item as Record<string, unknown>).host_profiles as Array<Record<string, unknown>>)[0]
+      : ((item as Record<string, unknown>).host_profiles as Record<string, unknown> | null);
+    const record = { ...(item as Record<string, unknown>) };
+    delete record.host_profiles;
+    if (hostProfile) Object.assign(record, hostProfile);
+    return record;
+  });
 
   if (kind === "payments") {
     for (const item of items as Array<{ id: string; order_id: string; screenshot_path?: string; related_attempts?: unknown[]; screenshot_url?: string }>) {
