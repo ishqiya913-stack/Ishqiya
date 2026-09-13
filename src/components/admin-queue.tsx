@@ -32,48 +32,21 @@ const labels: Record<Kind, string> = {
 };
 
 function text(value: unknown, fallback = "—") {
-  return value === null || value === undefined || value === ""
-    ? fallback
-    : String(value);
+  return value === null || value === undefined || value === "" ? fallback : String(value);
 }
 
 function date(value: unknown) {
   if (!value) return "—";
-
   const d = new Date(String(value));
-
-  return Number.isNaN(d.getTime())
-    ? String(value)
-    : d.toLocaleString("en-IN");
+  return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleString("en-IN");
 }
 
 function Badge({ value }: { value: unknown }) {
-  return (
-    <span
-      style={{
-        display: "inline-flex",
-        border: "1px solid var(--line)",
-        borderRadius: 999,
-        padding: ".25rem .55rem",
-        fontSize: ".7rem",
-        fontWeight: 800,
-      }}
-    >
-      {text(value)}
-    </span>
-  );
+  return <span style={{display:"inline-flex",border:"1px solid var(--line)",borderRadius:999,padding:".3rem .6rem",fontSize:".7rem",fontWeight:800}}>{text(value)}</span>;
 }
 
-type QueueResponse = {
-  items?: Item[];
-  total?: number;
-  error?: unknown;
-};
-
-type ActionResponse = {
-  error?: unknown;
-  profile?: Item;
-};
+type QueueResponse = { items?: Item[]; total?: number; error?: unknown };
+type ActionResponse = { error?: unknown; profile?: Item };
 
 export function AdminQueue({ initialKind }: { initialKind?: Kind }) {
   const [kind, setKind] = useState<Kind>(initialKind || "payments");
@@ -82,651 +55,102 @@ export function AdminQueue({ initialKind }: { initialKind?: Kind }) {
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string>("");
+  const [error, setError] = useState("");
   const [working, setWorking] = useState<string | null>(null);
 
-  useEffect(() => {
-    let active = true;
-
-    async function load() {
-      setLoading(true);
-      setError("");
-
-      try {
-        const response = await fetch(
-          `/api/admin/queue?kind=${kind}&page=${page}&search=${encodeURIComponent(search)}`,
-        );
-
-        const result = (await response.json()) as QueueResponse;
-
-        if (!active) return;
-
-        if (!response.ok) {
-          setError(
-            result.error
-              ? String(result.error)
-              : "Queue could not be loaded.",
-          );
-          return;
-        }
-
-        setItems(result.items || []);
-        setTotal(result.total || 0);
-      } catch {
-        if (active) {
-          setError("Queue could not be loaded.");
-        }
-      } finally {
-        if (active) {
-          setLoading(false);
-        }
-      }
-    }
-
-    void load();
-
-    return () => {
-      active = false;
-    };
-  }, [kind, page, search]);
-
-  async function postAction(
-    item: Item,
-    endpoint: string,
-    body: Record<string, unknown>,
-    remove = true,
-  ) {
-    const id = String(item.id);
-
-    if (
-      !window.confirm(
-        `Confirm this ${body.decision || body.status || "admin"} action?`,
-      )
-    ) {
-      return;
-    }
-
-    const reason = window.prompt("Optional admin reason:") || "";
-
-    setWorking(id);
-    setError("");
-
+  async function loadQueue() {
+    setLoading(true); setError("");
     try {
-      const response = await fetch(`${endpoint}/${id}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          ...body,
-          reason,
-        }),
-      });
-
-      const result = (await response.json()) as ActionResponse;
-
-      if (!response.ok) {
-        setError(
-          result.error
-            ? String(result.error)
-            : "Action could not be completed.",
-        );
-      } else if (remove) {
-        setItems((current) =>
-          current.filter((entry) => String(entry.id) !== id),
-        );
-      } else {
-        setItems((current) =>
-          current.map((entry) =>
-            String(entry.id) === id
-              ? {
-                  ...entry,
-                  status: body.status,
-                }
-              : entry,
-          ),
-        );
-      }
-    } catch {
-      setError("Action could not be completed.");
-    } finally {
-      setWorking(null);
-    }
+      const response = await fetch(`/api/admin/queue?kind=${kind}&page=${page}&search=${encodeURIComponent(search)}`, { cache: "no-store" });
+      const result = (await response.json()) as QueueResponse;
+      if (!response.ok) throw new Error(result.error ? String(result.error) : "Queue could not be loaded.");
+      setItems(result.items || []); setTotal(result.total || 0);
+    } catch (e) { setError(e instanceof Error ? e.message : "Queue could not be loaded."); }
+    finally { setLoading(false); }
   }
 
-  async function profileAction(
-    item: Item,
-    status: "active" | "suspended" | "blocked",
-  ) {
+  useEffect(() => { void loadQueue(); }, [kind, page, search]);
+
+  async function postAction(item: Item, endpoint: string, body: Record<string, unknown>, remove = true) {
     const id = String(item.id);
-
-    if (!window.confirm(`Set this account to ${status}?`)) {
-      return;
-    }
-
-    setWorking(id);
-    setError("");
-
+    if (!window.confirm(`Confirm this ${body.decision || body.status || "admin"} action?`)) return;
+    const reason = window.prompt("Optional admin reason:") || "";
+    setWorking(id); setError("");
     try {
-      const response = await fetch("/api/admin/profiles", {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          profileId: id,
-          accountStatus: status,
-        }),
-      });
-
+      const response = await fetch(`${endpoint}/${id}`, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({...body, reason}) });
       const result = (await response.json()) as ActionResponse;
+      if (!response.ok) throw new Error(result.error ? String(result.error) : "Action could not be completed.");
+      if (remove) setItems(current => current.filter(entry => String(entry.id) !== id));
+      else setItems(current => current.map(entry => String(entry.id) === id ? {...entry, status: body.status} : entry));
+    } catch (e) { setError(e instanceof Error ? e.message : "Action could not be completed."); }
+    finally { setWorking(null); }
+  }
 
-      if (!response.ok) {
-        setError(
-          result.error
-            ? String(result.error)
-            : "Profile could not be updated.",
-        );
-      } else {
-        setItems((current) =>
-          current.map((entry) =>
-            String(entry.id) === id
-              ? {
-                  ...entry,
-                  ...(result.profile || {}),
-                  account_status: status,
-                }
-              : entry,
-          ),
-        );
-      }
-    } catch {
-      setError("Profile could not be updated.");
-    } finally {
-      setWorking(null);
-    }
+  async function profileAction(item: Item, status: "active" | "suspended" | "blocked") {
+    const id = String(item.id);
+    if (!window.confirm(`Set this account to ${status}?`)) return;
+    const reason = window.prompt("Optional admin reason:") || "";
+    setWorking(id); setError("");
+    try {
+      const response = await fetch("/api/admin/profiles", { method:"PATCH", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ profileId:id, accountStatus:status, moderationNote:reason }) });
+      const result = (await response.json()) as ActionResponse;
+      if (!response.ok) throw new Error(result.error ? String(result.error) : "Profile could not be updated.");
+      setItems(current => current.map(entry => String(entry.id) === id ? {...entry, ...(result.profile || {}), account_status:status} : entry));
+    } catch (e) { setError(e instanceof Error ? e.message : "Profile could not be updated."); }
+    finally { setWorking(null); }
+  }
+
+  async function hostControl(item: Item, field: "isActive" | "isVisible" | "isDiscoverable", value: boolean) {
+    const id = String(item.id);
+    setWorking(id); setError("");
+    try {
+      const response = await fetch("/api/admin/profiles", { method:"PATCH", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ profileId:id, [field]:value }) });
+      const result = (await response.json()) as ActionResponse;
+      if (!response.ok) throw new Error(result.error ? String(result.error) : "Host control could not be updated.");
+      const key = field === "isActive" ? "is_active" : field === "isVisible" ? "is_visible" : "is_discoverable";
+      setItems(current => current.map(entry => String(entry.id) === id ? {...entry, [key]:value} : entry));
+    } catch (e) { setError(e instanceof Error ? e.message : "Host control could not be updated."); }
+    finally { setWorking(null); }
   }
 
   function actions(item: Item) {
-    const id = String(item.id);
-    const disabled = working === id;
-
-    if (kind === "payments") {
-      return (
-        <>
-          <Button
-            type="button"
-            disabled={disabled}
-            onClick={() =>
-              void postAction(item, "/api/admin/payments", {
-                decision: "approve",
-              })
-            }
-          >
-            Approve
-          </Button>
-
-          <Button
-            type="button"
-            variant="danger"
-            disabled={disabled}
-            onClick={() =>
-              void postAction(item, "/api/admin/payments", {
-                decision: "reject",
-              })
-            }
-          >
-            Reject
-          </Button>
-        </>
-      );
-    }
-
-    if (kind === "violations") {
-      return (
-        <>
-          <Button
-            type="button"
-            disabled={disabled}
-            onClick={() =>
-              void postAction(item, "/api/admin/violations", {
-                decision: "confirm",
-              })
-            }
-          >
-            Confirm
-          </Button>
-
-          <Button
-            type="button"
-            variant="quiet"
-            disabled={disabled}
-            onClick={() =>
-              void postAction(item, "/api/admin/violations", {
-                decision: "dismiss",
-              })
-            }
-          >
-            Dismiss
-          </Button>
-        </>
-      );
-    }
-
-    if (kind === "reports") {
-      return (
-        <>
-          <Button
-            type="button"
-            disabled={disabled}
-            onClick={() =>
-              void postAction(
-                item,
-                "/api/admin/reports",
-                { status: "reviewing" },
-                false,
-              )
-            }
-          >
-            Review
-          </Button>
-
-          <Button
-            type="button"
-            disabled={disabled}
-            onClick={() =>
-              void postAction(item, "/api/admin/reports", {
-                status: "resolved",
-              })
-            }
-          >
-            Resolve
-          </Button>
-
-          <Button
-            type="button"
-            variant="quiet"
-            disabled={disabled}
-            onClick={() =>
-              void postAction(item, "/api/admin/reports", {
-                status: "dismissed",
-              })
-            }
-          >
-            Dismiss
-          </Button>
-        </>
-      );
-    }
-
-    if (kind === "host-verification") {
-      return (
-        <>
-          <Button
-            type="button"
-            disabled={disabled}
-            onClick={() =>
-              void postAction(item, "/api/admin/host-verification", {
-                decision: "approve",
-              })
-            }
-          >
-            Approve Photo
-          </Button>
-
-          <Button
-            type="button"
-            variant="danger"
-            disabled={disabled}
-            onClick={() =>
-              void postAction(item, "/api/admin/host-verification", {
-                decision: "reject",
-              })
-            }
-          >
-            Reject Photo
-          </Button>
-        </>
-      );
-    }
-
-    if (kind === "users" || kind === "hosts") {
-      return (
-        <>
-          <Button
-            type="button"
-            disabled={disabled}
-            onClick={() => void profileAction(item, "active")}
-          >
-            Activate
-          </Button>
-
-          <Button
-            type="button"
-            variant="quiet"
-            disabled={disabled}
-            onClick={() => void profileAction(item, "suspended")}
-          >
-            Suspend
-          </Button>
-
-          <Button
-            type="button"
-            variant="danger"
-            disabled={disabled}
-            onClick={() => void profileAction(item, "blocked")}
-          >
-            Block
-          </Button>
-        </>
-      );
-    }
-
+    const id = String(item.id), disabled = working === id;
+    if (kind === "payments") return <><Button type="button" disabled={disabled} onClick={()=>void postAction(item,"/api/admin/payments",{decision:"approve"})}>Approve</Button><Button type="button" variant="danger" disabled={disabled} onClick={()=>void postAction(item,"/api/admin/payments",{decision:"reject"})}>Reject</Button></>;
+    if (kind === "violations") return <><Button type="button" disabled={disabled} onClick={()=>void postAction(item,"/api/admin/violations",{decision:"confirm"})}>Confirm</Button><Button type="button" variant="quiet" disabled={disabled} onClick={()=>void postAction(item,"/api/admin/violations",{decision:"dismiss"})}>Dismiss</Button></>;
+    if (kind === "reports") return <><Button type="button" disabled={disabled} onClick={()=>void postAction(item,"/api/admin/reports",{status:"reviewing"},false)}>Review</Button><Button type="button" disabled={disabled} onClick={()=>void postAction(item,"/api/admin/reports",{status:"resolved"})}>Resolve</Button><Button type="button" variant="quiet" disabled={disabled} onClick={()=>void postAction(item,"/api/admin/reports",{status:"dismissed"})}>Dismiss</Button></>;
+    if (kind === "host-verification") return <><Button type="button" disabled={disabled} onClick={()=>void postAction(item,"/api/admin/host-verification",{decision:"approve"})}>Approve Photo</Button><Button type="button" variant="danger" disabled={disabled} onClick={()=>void postAction(item,"/api/admin/host-verification",{decision:"reject"})}>Reject Photo</Button></>;
+    if (kind === "users") return <><Button type="button" disabled={disabled} onClick={()=>void profileAction(item,"active")}>Activate</Button><Button type="button" variant="quiet" disabled={disabled} onClick={()=>void profileAction(item,"suspended")}>Suspend</Button><Button type="button" variant="danger" disabled={disabled} onClick={()=>void profileAction(item,"blocked")}>Block</Button></>;
+    if (kind === "hosts") return <><Button type="button" disabled={disabled} onClick={()=>void profileAction(item,"active")}>Activate</Button><Button type="button" variant="quiet" disabled={disabled} onClick={()=>void profileAction(item,"suspended")}>Suspend</Button><Button type="button" variant="danger" disabled={disabled} onClick={()=>void profileAction(item,"blocked")}>Block</Button></>;
     return null;
   }
 
   function renderItem(item: Item, index: number) {
-    const title =
-      kind === "users" || kind === "hosts"
-        ? text(item.display_name, text(item.email, "Account"))
-        : labels[kind];
-
-    return (
-      <article
-        key={String(item.id || index)}
-        className="choice-card"
-        style={{
-          display: "grid",
-          gap: ".8rem",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            gap: "1rem",
-            alignItems: "flex-start",
-          }}
-        >
-          <div>
-            <strong>{title}</strong>
-
-            <div
-              className="muted"
-              style={{
-                fontSize: ".76rem",
-                marginTop: ".2rem",
-              }}
-            >
-              {text(item.email)} · {date(item.created_at)}
-            </div>
-          </div>
-
-          <Badge
-            value={
-              item.status ??
-              item.account_status ??
-              item.purchase_state ??
-              item.reconciliation_status
-            }
-          />
-        </div>
-
-        {kind === "payments" && (
-          <div
-            style={{
-              display: "grid",
-              gap: ".35rem",
-            }}
-          >
-            <div>
-              <strong>
-                {(Number(item.expected_amount_paise || 0) / 100).toFixed(2)} INR
-              </strong>{" "}
-              · UTR {text(item.utr)} · Txn {text(item.transaction_id)}
-            </div>
-
-            {item.screenshot_url ? (
-              <a
-                href={String(item.screenshot_url)}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Open payment proof
-              </a>
-            ) : null}
-
-            <span className="muted">
-              Attempt {text(item.attempt_number)} · Fraud flags:{" "}
-              {Array.isArray(item.fraud_flags)
-                ? item.fraud_flags.length
-                : 0}
-            </span>
-          </div>
-        )}
-
-        {kind === "google-play" && (
-          <div>
-            <strong>{text(item.coins_credited, "0")} coins</strong> ·{" "}
-            {text(item.product_id)} · {text(item.purchase_state)} /{" "}
-            {text(item.consumption_state)}
-            {item.verification_error ? (
-              <p className="muted">
-                {text(item.verification_error)}
-              </p>
-            ) : null}
-          </div>
-        )}
-
-        {kind === "reports" && (
-          <div>
-            <strong>{text(item.reason)}</strong>
-
-            <div className="muted">
-              Reporter {text(item.reporter_id)} → Reported{" "}
-              {text(item.reported_id)} · {text(item.reporter_role)} →{" "}
-              {text(item.reported_role)}
-            </div>
-          </div>
-        )}
-
-        {kind === "violations" && (
-          <div>
-            <strong>{text(item.violation_type)}</strong>
-
-            <div className="muted">
-              {text(item.reason)} · Confidence{" "}
-              {item.confidence == null
-                ? "—"
-                : `${Math.round(Number(item.confidence) * 100)}%`}
-            </div>
-          </div>
-        )}
-
-        {kind === "host-verification" && (
-          <div
-            style={{
-              display: "grid",
-              gap: ".6rem",
-            }}
-          >
-            <span>
-              Host {text(item.host_id)} · Photo {text(item.photo_number)}
-            </span>
-
-            {item.verification_url ? (
-              <img
-                src={String(item.verification_url)}
-                alt={`Host verification photo ${text(item.photo_number)}`}
-                style={{
-                  width: "100%",
-                  maxWidth: 320,
-                  maxHeight: 420,
-                  objectFit: "cover",
-                  borderRadius: 14,
-                  border: "1px solid var(--line)",
-                }}
-              />
-            ) : null}
-          </div>
-        )}
-
-        {kind === "earnings" && (
-          <div>
-            <strong>
-              {text(item.earned_coins, "0")} earned coins
-            </strong>{" "}
-            · Gross {text(item.gross_coins, "0")} · Share{" "}
-            {text(item.share_percent, "0")}%
-
-            <div className="muted">
-              Host {text(item.host_id)} · Source{" "}
-              {text(item.source_type)} · Interval{" "}
-              {text(item.billing_interval)}
-            </div>
-          </div>
-        )}
-
-        {kind === "video" && (
-          <div>
-            <strong>{text(item.room_name)}</strong> ·{" "}
-            {text(item.duration_seconds, "0")} sec ·{" "}
-            {text(item.coins_charged, "0")} coins
-
-            <div className="muted">
-              Status {text(item.status)} · Moderation{" "}
-              {text(item.moderation_status)} · Reconciliation{" "}
-              {text(item.reconciliation_status)}
-            </div>
-          </div>
-        )}
-
-        {kind === "audit" && (
-          <div>
-            <strong>{text(item.action)}</strong>
-
-            <div className="muted">
-              {text(item.target_type)} · {text(item.target_id)} · Admin{" "}
-              {text(item.admin_id)}
-            </div>
-
-            {item.reason ? (
-              <div className="muted">
-                Reason: {text(item.reason)}
-              </div>
-            ) : null}
-          </div>
-        )}
-
-        {(kind === "users" || kind === "hosts") && (
-          <div>
-            <span className="muted">
-              Role: {text(item.role)} · Account:{" "}
-              {text(item.account_status)}
-            </span>
-          </div>
-        )}
-
-        <div className="form-footer">
-          {actions(item)}
-        </div>
-      </article>
-    );
+    const title = (kind === "users" || kind === "hosts") ? text(item.display_name, text(item.email, "Account")) : labels[kind];
+    const accountStatus = text(item.account_status);
+    return <article key={String(item.id || index)} className="choice-card" style={{display:"grid",gap:".9rem"}}>
+      <div style={{display:"flex",justifyContent:"space-between",gap:"1rem",alignItems:"flex-start"}}><div><strong>{title}</strong><div className="muted" style={{fontSize:".76rem",marginTop:".2rem"}}>{text(item.email)} · {date(item.created_at)}</div></div><Badge value={item.status ?? item.account_status ?? item.purchase_state ?? item.reconciliation_status}/></div>
+      {(kind === "users" || kind === "hosts") && <div className="muted">Role: {text(item.role)} · Account: {accountStatus}</div>}
+      {kind === "hosts" && <div style={{display:"flex",flexWrap:"wrap",gap:".45rem"}}>
+        <Button type="button" variant={item.is_active ? "quiet" : undefined} disabled={working===String(item.id)} onClick={()=>void hostControl(item,"isActive",!Boolean(item.is_active))}>{item.is_active ? "Deactivate Host" : "Activate Host"}</Button>
+        <Button type="button" variant={item.is_visible ? "quiet" : undefined} disabled={working===String(item.id)} onClick={()=>void hostControl(item,"isVisible",!Boolean(item.is_visible))}>{item.is_visible ? "Hide from Discover" : "Show in Discover"}</Button>
+        <Button type="button" variant={item.is_discoverable ? "quiet" : undefined} disabled={working===String(item.id)} onClick={()=>void hostControl(item,"isDiscoverable",!Boolean(item.is_discoverable))}>{item.is_discoverable ? "Disable Discover" : "Enable Discover"}</Button>
+      </div>}
+      {kind === "payments" && <div style={{display:"grid",gap:".35rem"}}><div><strong>{(Number(item.expected_amount_paise||0)/100).toFixed(2)} INR</strong> · UTR {text(item.utr)} · Txn {text(item.transaction_id)}</div>{item.screenshot_url ? <a href={String(item.screenshot_url)} target="_blank" rel="noreferrer">Open payment proof</a> : null}<span className="muted">Attempt {text(item.attempt_number)} · Fraud flags: {Array.isArray(item.fraud_flags) ? item.fraud_flags.length : 0}</span></div>}
+      {kind === "google-play" && <div><strong>{text(item.coins_credited,"0")} coins</strong> · {text(item.product_id)} · {text(item.purchase_state)} / {text(item.consumption_state)}{item.verification_error ? <p className="muted">{text(item.verification_error)}</p> : null}</div>}
+      {kind === "reports" && <div><strong>{text(item.reason)}</strong><div className="muted">Reporter {text(item.reporter_id)} → Reported {text(item.reported_id)}</div></div>}
+      {kind === "violations" && <div><strong>{text(item.violation_type)}</strong><div className="muted">{text(item.reason)} · Confidence {item.confidence == null ? "—" : `${Math.round(Number(item.confidence)*100)}%`}</div></div>}
+      {kind === "host-verification" && <div style={{display:"grid",gap:".6rem"}}><span>Host {text(item.host_id)} · Photo {text(item.photo_number)}</span>{item.verification_url ? <img src={String(item.verification_url)} alt={`Host verification photo ${text(item.photo_number)}`} style={{width:"100%",maxWidth:320,maxHeight:420,objectFit:"cover",borderRadius:14,border:"1px solid var(--line)"}}/> : null}</div>}
+      {kind === "earnings" && <div><strong>{text(item.earned_coins,"0")} earned coins</strong> · Gross {text(item.gross_coins,"0")} · Share {text(item.share_percent,"0")} %<div className="muted">Host {text(item.host_id)} · Source {text(item.source_type)}</div></div>}
+      {kind === "video" && <div><strong>{text(item.room_name)}</strong> · {text(item.duration_seconds,"0")} sec · {text(item.coins_charged,"0")} coins<div className="muted">Status {text(item.status)} · Reconciliation {text(item.reconciliation_status)}</div></div>}
+      {kind === "audit" && <div><strong>{text(item.action)}</strong><div className="muted">{text(item.target_type)} · {text(item.target_id)}</div>{item.reason ? <div className="muted">Reason: {text(item.reason)}</div> : null}</div>}
+      <div className="form-footer">{actions(item)}</div>
+    </article>;
   }
 
   const selectId = `admin-queue-${initialKind || "main"}`;
-
-  return (
-    <section
-      className="choice-card"
-      style={{
-        display: "grid",
-        gap: "1rem",
-      }}
-    >
-      <div
-        className="form-footer"
-        style={{
-          alignItems: "center",
-        }}
-      >
-        <label htmlFor={selectId}>Operations</label>
-
-        <select
-          id={selectId}
-          value={kind}
-          onChange={(event) => {
-            setKind(event.target.value as Kind);
-            setPage(1);
-            setSearch("");
-          }}
-        >
-          {(Object.keys(labels) as Kind[]).map((key) => (
-            <option key={key} value={key}>
-              {labels[key]}
-            </option>
-          ))}
-        </select>
-
-        {(kind === "users" || kind === "hosts") && (
-          <input
-            aria-label="Search queue"
-            placeholder="Search email or name"
-            value={search}
-            onChange={(event) => {
-              setSearch(event.target.value);
-              setPage(1);
-            }}
-          />
-        )}
-      </div>
-
-      {loading ? (
-        <Loading label="Loading admin operations" />
-      ) : error ? (
-        <p role="alert" className="muted">
-          {error}
-        </p>
-      ) : items.length ? (
-        <div
-          style={{
-            display: "grid",
-            gap: ".75rem",
-          }}
-        >
-          {items.map(renderItem)}
-        </div>
-      ) : (
-        <p className="muted">No records in this queue.</p>
-      )}
-
-      <div className="form-footer">
-        <Button
-          type="button"
-          variant="quiet"
-          disabled={page <= 1 || loading}
-          onClick={() =>
-            setPage((current) => current - 1)
-          }
-        >
-          Previous
-        </Button>
-
-        <span className="muted">
-          Page {page} · {total} records
-        </span>
-
-        <Button
-          type="button"
-          variant="quiet"
-          disabled={page * 25 >= total || loading}
-          onClick={() =>
-            setPage((current) => current + 1)
-          }
-        >
-          Next
-        </Button>
-      </div>
-    </section>
-  );
+  return <section className="choice-card" style={{display:"grid",gap:"1rem"}}>
+    <div className="form-footer" style={{alignItems:"center"}}><label htmlFor={selectId}>Operations</label><select id={selectId} value={kind} onChange={event=>{setKind(event.target.value as Kind);setPage(1);setSearch("");}}>{(Object.keys(labels) as Kind[]).map(key=><option key={key} value={key}>{labels[key]}</option>)}</select>{(kind === "users" || kind === "hosts") && <input aria-label="Search queue" placeholder="Search email or name" value={search} onChange={event=>{setSearch(event.target.value);setPage(1);}}/>}</div>
+    {loading ? <Loading label="Loading admin operations"/> : error ? <p role="alert" className="muted">{error}</p> : items.length ? <div style={{display:"grid",gap:".75rem"}}>{items.map(renderItem)}</div> : <p className="muted">No records in this queue.</p>}
+    <div className="form-footer"><Button type="button" variant="quiet" disabled={page<=1||loading} onClick={()=>setPage(current=>current-1)}>Previous</Button><span className="muted">Page {page} · {total} records</span><Button type="button" variant="quiet" disabled={page*25>=total||loading} onClick={()=>setPage(current=>current+1)}>Next</Button></div>
+  </section>;
 }
