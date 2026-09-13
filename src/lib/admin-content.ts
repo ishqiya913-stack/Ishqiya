@@ -11,7 +11,7 @@ export const DEFAULT_SITE_CONTENT = {
   video_price_coins_per_minute: "100",
   host_share_percent: "20",
   support_email: "",
-  child_safety_contact: "",
+  child_safety_contact: "safetyishqiya@yahoo.com",
   maintenance_mode: "false",
 } as const;
 
