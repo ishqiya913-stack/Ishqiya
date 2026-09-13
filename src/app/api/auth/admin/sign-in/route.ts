@@ -22,7 +22,13 @@ export async function POST(request: Request) {
     }
 
     const adminUserId = process.env.ISHQIYA_ADMIN_USER_ID?.trim();
-    if (!adminUserId || data.user.id !== adminUserId) {
+    if (!adminUserId) {
+      await supabase.auth.signOut();
+      console.error("Admin sign-in configuration error: ISHQIYA_ADMIN_USER_ID is missing.");
+      return NextResponse.json({ error: "Admin sign-in is not configured on this deployment." }, { status: 503 });
+    }
+
+    if (data.user.id !== adminUserId) {
       await supabase.auth.signOut();
       return NextResponse.json({ error: "Admin access denied." }, { status: 403 });
     }
