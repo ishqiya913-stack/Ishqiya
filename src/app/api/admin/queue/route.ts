@@ -39,6 +39,7 @@ export async function GET(request: Request) {
       : ((item as Record<string, unknown>).host_profiles as Record<string, unknown> | null);
     const record = { ...(item as Record<string, unknown>) };
     delete record.host_profiles;
+    record.host_profile_exists = Boolean(hostProfile);
     if (hostProfile) Object.assign(record, hostProfile);
     return record;
   });
