@@ -34,13 +34,11 @@ const labels: Record<Kind, string> = {
 function text(value: unknown, fallback = "—") {
   return value === null || value === undefined || value === "" ? fallback : String(value);
 }
-
 function date(value: unknown) {
   if (!value) return "—";
   const d = new Date(String(value));
   return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleString("en-IN");
 }
-
 function Badge({ value }: { value: unknown }) {
   return <span style={{display:"inline-flex",border:"1px solid var(--line)",borderRadius:999,padding:".3rem .6rem",fontSize:".7rem",fontWeight:800}}>{text(value)}</span>;
 }
@@ -126,10 +124,9 @@ export function AdminQueue({ initialKind }: { initialKind?: Kind }) {
 
   function renderItem(item: Item, index: number) {
     const title = (kind === "users" || kind === "hosts") ? text(item.display_name, text(item.email, "Account")) : labels[kind];
-    const accountStatus = text(item.account_status);
     return <article key={String(item.id || index)} className="choice-card" style={{display:"grid",gap:".9rem"}}>
       <div style={{display:"flex",justifyContent:"space-between",gap:"1rem",alignItems:"flex-start"}}><div><strong>{title}</strong><div className="muted" style={{fontSize:".76rem",marginTop:".2rem"}}>{text(item.email)} · {date(item.created_at)}</div></div><Badge value={item.status ?? item.account_status ?? item.purchase_state ?? item.reconciliation_status}/></div>
-      {(kind === "users" || kind === "hosts") && <div className="muted">Role: {text(item.role)} · Account: {accountStatus}</div>}
+      {(kind === "users" || kind === "hosts") && <div className="muted">Role: {text(item.role)} · Account: {text(item.account_status)}</div>}
       {kind === "hosts" && <div style={{display:"flex",flexWrap:"wrap",gap:".45rem"}}>
         <Button type="button" variant={item.is_active ? "quiet" : undefined} disabled={working===String(item.id)} onClick={()=>void hostControl(item,"isActive",!Boolean(item.is_active))}>{item.is_active ? "Deactivate Host" : "Activate Host"}</Button>
         <Button type="button" variant={item.is_visible ? "quiet" : undefined} disabled={working===String(item.id)} onClick={()=>void hostControl(item,"isVisible",!Boolean(item.is_visible))}>{item.is_visible ? "Hide from Discover" : "Show in Discover"}</Button>
@@ -140,7 +137,7 @@ export function AdminQueue({ initialKind }: { initialKind?: Kind }) {
       {kind === "reports" && <div><strong>{text(item.reason)}</strong><div className="muted">Reporter {text(item.reporter_id)} → Reported {text(item.reported_id)}</div></div>}
       {kind === "violations" && <div><strong>{text(item.violation_type)}</strong><div className="muted">{text(item.reason)} · Confidence {item.confidence == null ? "—" : `${Math.round(Number(item.confidence)*100)}%`}</div></div>}
       {kind === "host-verification" && <div style={{display:"grid",gap:".6rem"}}><span>Host {text(item.host_id)} · Photo {text(item.photo_number)}</span>{item.verification_url ? <img src={String(item.verification_url)} alt={`Host verification photo ${text(item.photo_number)}`} style={{width:"100%",maxWidth:320,maxHeight:420,objectFit:"cover",borderRadius:14,border:"1px solid var(--line)"}}/> : null}</div>}
-      {kind === "earnings" && <div><strong>{text(item.earned_coins,"0")} earned coins</strong> · Gross {text(item.gross_coins,"0")} · Share {text(item.share_percent,"0")} %<div className="muted">Host {text(item.host_id)} · Source {text(item.source_type)}</div></div>}
+      {kind === "earnings" && <div><strong>{text(item.earned_coins,"0")} earned coins</strong> · Gross {text(item.gross_coins,"0")} · Share {text(item.share_percent,"0")}%<div className="muted">Host {text(item.host_id)} · Source {text(item.source_type)}</div></div>}
       {kind === "video" && <div><strong>{text(item.room_name)}</strong> · {text(item.duration_seconds,"0")} sec · {text(item.coins_charged,"0")} coins<div className="muted">Status {text(item.status)} · Reconciliation {text(item.reconciliation_status)}</div></div>}
       {kind === "audit" && <div><strong>{text(item.action)}</strong><div className="muted">{text(item.target_type)} · {text(item.target_id)}</div>{item.reason ? <div className="muted">Reason: {text(item.reason)}</div> : null}</div>}
       <div className="form-footer">{actions(item)}</div>
