@@ -1,55 +1,70 @@
 "use client";
 
-const ALLOWED_NEXT = new Set([
-  "/auth/admin/reset-password",
-  "/auth/host/reset-password",
-  "/auth/user/reset-password",
-]);
+import { useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
-export default function RecoveryBridge() {
-  function continueRecovery() {
-    const params = new URLSearchParams(window.location.search);
-    const requestedNext = params.get("next") || "";
+export default function RecoveryBridgePage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
-    let value = "";
+  useEffect(() => {
+    async function recover() {
+      const supabase = createClient();
+      const next = searchParams.get("next");
+      const safeNext =
+        next && next.startsWith("/") && !next.startsWith("//")
+          ? next
+          : "/auth/admin/reset-password";
 
-    try {
-      value = window.location.hash.startsWith("#u=")
-        ? decodeURIComponent(window.location.hash.slice(3))
-        : "";
-    } catch {
-      value = "";
+      const code = searchParams.get("code");
+
+      if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) {
+          router.replace("/auth/admin/sign-in?error=recovery_failed");
+          return;
+        }
+        router.replace(safeNext);
+        return;
+      }
+
+      const hash = window.location.hash;
+
+      if (hash.includes("access_token=")) {
+        const params = new URLSearchParams(hash.slice(1));
+        const accessToken = params.get("access_token");
+        const refreshToken = params.get("refresh_token");
+
+        if (accessToken && refreshToken) {
+          const { error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+
+          if (!error) {
+            window.history.replaceState(
+              {},
+              document.title,
+              window.location.pathname + window.location.search
+            );
+            router.replace(safeNext);
+            return;
+          }
+        }
+      }
+
+      router.replace("/auth/admin/sign-in?error=recovery_missing");
     }
 
-    if (!ALLOWED_NEXT.has(requestedNext)) {
-      window.alert("Invalid recovery link.");
-      return;
-    }
-
-    if (!/^https:\/\/[^/]+\.supabase\.co\/auth\/v1\/verify\?/i.test(value)) {
-      window.alert("Invalid or expired recovery link.");
-      return;
-    }
-
-    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-    window.location.href = value;
-  }
+    recover();
+  }, [router, searchParams]);
 
   return (
     <main className="auth-page">
-      <section
-        className="form-card"
-        style={{ maxWidth: "32rem", width: "100%", margin: "auto" }}
-      >
-        <span className="eyebrow">ISHQIYA SECURITY</span>
-        <h2>Continue password recovery</h2>
-        <p className="muted">
-          For security, the recovery link is activated only after you press
-          the button below.
-        </p>
-        <button className="button" type="button" onClick={continueRecovery}>
-          Continue securely
-        </button>
+      <section className="form-card">
+        <h2>Preparing password reset...</h2>
+        <p className="muted">Please wait...</p>
       </section>
     </main>
   );
