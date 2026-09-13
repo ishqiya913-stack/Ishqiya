@@ -4,8 +4,7 @@ import { requireAdmin } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AdminQueue } from "@/components/admin-queue";
 import { AdminSettings } from "@/components/admin-settings";
-
-const navTabs = [["overview", "Overview"], ["people", "People"], ["payments", "Payments"], ["safety", "Safety & Reports"], ["content", "Content"], ["system", "System"]] as const;
+import { AdminTabs } from "@/components/admin-tabs";
 
 export default async function AdminPage() {
   await requireAdmin();
@@ -34,7 +33,7 @@ export default async function AdminPage() {
       .admin-status{display:inline-flex;align-items:center;gap:.5rem;border:1px solid var(--line);border-radius:999px;padding:.55rem .8rem;color:var(--muted);font-size:.78rem;background:rgba(255,255,255,.03)}
       .admin-status i{width:.5rem;height:.5rem;border-radius:50%;background:#61c48a;display:block;box-shadow:0 0 0 .2rem rgba(97,196,138,.08)}
       .admin-tabs{position:sticky;top:0;z-index:5;display:flex;gap:.35rem;overflow-x:auto;padding:.55rem;background:rgba(9,7,10,.94);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:16px}
-      .admin-tabs a{padding:.65rem .9rem;border-radius:11px;color:var(--muted);font-size:.8rem;font-weight:800;white-space:nowrap;transition:.2s ease}
+      .admin-tabs a{padding:.65rem .9rem;border-radius:11px;color:var(--muted);font-size:.8rem;font-weight:800;white-space:nowrap;transition:.2s ease;cursor:pointer}
       .admin-tabs a:hover,.admin-tabs a:focus-visible{background:var(--blush);color:var(--cream);transform:translateY(-1px)}
       .admin-section{scroll-margin-top:6rem;background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.018));border:1px solid var(--line);border-radius:22px;padding:1rem;box-shadow:0 12px 30px rgba(0,0,0,.12)}
       .admin-section-head{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;margin-bottom:1rem}
@@ -54,7 +53,7 @@ export default async function AdminPage() {
     `}</style>
     <div className="admin-console" id="overview">
       <div className="admin-hero"><div><span className="eyebrow">Private operations</span><h1 className="serif">Ishqiya Admin</h1><p className="muted">Production control center for people, payments, safety, content and system operations.</p></div><span className="admin-status"><i /> Production console</span></div>
-      <nav className="admin-tabs" aria-label="Admin sections">{navTabs.map(([id,label])=><a key={id} href={`#${id}`}>{label}</a>)}</nav>
+      <AdminTabs />
       <section className="admin-section" aria-labelledby="overview-title"><div className="admin-section-head"><div><h2 id="overview-title">Live overview</h2><p>Server-side operational counts from the production database.</p></div></div><div className="admin-stat-grid">
         <div className="admin-stat-card"><span className="eyebrow">Users</span><strong>{users.count||0}</strong><small>Registered</small></div>
         <div className="admin-stat-card"><span className="eyebrow">Hosts</span><strong>{hosts.count||0}</strong><small>Host accounts</small></div>
@@ -71,7 +70,7 @@ export default async function AdminPage() {
       </div></section>
       <section className="admin-section" id="people"><div className="admin-section-head"><div><h2>People & Hosts</h2><p>Search accounts and control account status and Host discoverability.</p></div></div><div className="payment-links"><a className="payment-link" href="#people"><strong>Users</strong><span>Activate, suspend or block user accounts</span></a><a className="payment-link" href="#people"><strong>Hosts</strong><span>Account status and Discover controls</span></a><a className="payment-link" href="#safety"><strong>Host verification</strong><span>Review submitted verification photos</span></a></div><AdminQueue initialKind="users" /></section>
       <section className="admin-section" id="payments"><div className="admin-section-head"><div><h2>Payments Received</h2><p>UPI and Google Play are shown side-by-side as separate ledgers. Google Play uses existing purchase records only.</p></div></div><div className="admin-payments-grid"><div className="admin-payment-panel" id="upi-received"><h3>💳 UPI Received</h3><p>Payment proofs, ₹ amount, coins, UTR/transaction references, proof image and approval status.</p><AdminQueue initialKind="payments" /></div><div className="admin-payment-panel" id="google-play-received"><h3>🟢 Google Play Received</h3><p>Verified purchase records, package, coins, Google order ID, purchase state and consumption state.</p><AdminQueue initialKind="google-play" /></div></div></section>
-      <section className="admin-section" id="safety"><div className="admin-section-head"><div><h2>Safety & reports</h2><p>Resolve reports, confirm or dismiss violations, and review Host verification photos.</p></div></div><AdminQueue initialKind="reports" /></section>
+      <section className="admin-section" id="safety"><div className="admin-section-head"><div><h2>Safety & reports</h2><p>Resolve reports, confirm or dismiss violations, and review Host verification photos.</p></div></section><AdminQueue initialKind="reports" /></section>
       <section className="admin-section" id="content"><div className="admin-section-head"><div><h2>Content & settings</h2><p>Database-backed public content and operational settings with audit logging.</p></div></div><AdminSettings /></section>
       <section className="admin-section" id="system"><div className="admin-section-head"><div><h2>System operations</h2><p>Operational visibility for video billing, Host earnings and administrative actions.</p></div></div><div className="admin-system-grid"><AdminQueue initialKind="video" /><AdminQueue initialKind="earnings" /><AdminQueue initialKind="audit" /></div></section>
       <EmptyState title="Server-controlled administration" message="Financial credits, payment approvals, moderation decisions and account enforcement are performed through authenticated server routes and recorded in the audit trail." />
