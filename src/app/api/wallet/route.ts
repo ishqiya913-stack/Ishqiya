@@ -18,9 +18,7 @@ export async function GET() {
 export async function POST(request: Request) {
   const { user } = await requireRole("user");
   const body = await request.json() as { packageId?: string; coins?: number };
-  if (!body.packageId && !Number.isFinite(Number(body.coins))) {
-    return NextResponse.json({ error: "Select a coin package." }, { status: 400 });
-  }
+  if (!body.packageId && !Number.isFinite(Number(body.coins))) return NextResponse.json({ error: "Select a coin package." }, { status: 400 });
 
   const admin = createAdminClient();
   let packageRow: { id: string; coins: number; price_rupees: number } | null = null;
@@ -31,18 +29,15 @@ export async function POST(request: Request) {
     packageRow = result.data;
     packageError = result.error;
   }
-
   if (!packageRow && Number.isFinite(Number(body.coins))) {
     const result = await admin.from("coin_packages").select("id, coins, price_rupees").eq("coins", Number(body.coins)).eq("is_active", true).maybeSingle();
     packageRow = result.data;
     packageError = result.error;
   }
-
   if (packageError || !packageRow) return NextResponse.json({ error: "That package is unavailable." }, { status: 400 });
 
   const upiId = process.env.ISHQIYA_UPI_ID?.trim();
   if (!upiId) return NextResponse.json({ error: "UPI payments are not configured on the server." }, { status: 503 });
-
   const amountRupees = Number(packageRow.price_rupees);
   if (!Number.isFinite(amountRupees) || amountRupees <= 0) return NextResponse.json({ error: "Coin package price is invalid." }, { status: 500 });
 
@@ -52,9 +47,6 @@ export async function POST(request: Request) {
   const merchantCode = process.env.ISHQIYA_UPI_MCC?.trim();
   const configuredPayeeName = process.env.ISHQIYA_UPI_PAYEE_NAME?.trim();
 
-  // Merchant-style intent is used only when the server has an actual MCC and
-  // configured merchant/payee name. Otherwise keep a clean generic UPI intent
-  // for a VPA, which also provides a fallback for personal UPI accounts.
   const merchantParams = new URLSearchParams({
     pa: upiId,
     pn: configuredPayeeName || "Ishqiya",
@@ -72,8 +64,11 @@ export async function POST(request: Request) {
     tn: `Ishqiya ${noteRef}`,
   });
 
-  const upiUri = `upi://pay?${merchantParams.toString()}`;
+  const merchantUpiUri = `upi://pay?${merchantParams.toString()}`;
   const simpleUpiUri = `upi://pay?${simpleParams.toString()}`;
+  // A personal VPA must not be presented as a merchant intent. Use the clean
+  // generic UPI intent unless both merchant identity and MCC are configured.
+  const upiUri = merchantCode && configuredPayeeName ? merchantUpiUri : simpleUpiUri;
 
   const { data: order, error } = await admin.from("payment_orders").insert({
     id: orderId,
