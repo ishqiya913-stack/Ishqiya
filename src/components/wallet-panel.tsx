@@ -90,18 +90,24 @@ export function WalletPanel() {
 
       setOrder(result.order);
 
-      // Opens a real UPI payment intent. No client-side credit is performed.
-      const link = document.createElement("a");
-      link.href = result.order.upi_uri;
-      link.rel = "noopener";
-      link.target = "_self";
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
+      // Launch the real UPI URI. The browser/OS decides which installed UPI
+      // app handles it. No client-side coin credit is performed.
+      window.location.assign(result.order.upi_uri);
     } catch {
-      setMessage("Could not start UPI payment.");
+      setMessage("UPI could not be opened. Use the Reopen UPI payment button below.");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function copyPaymentLink() {
+    if (!order) return;
+
+    try {
+      await navigator.clipboard.writeText(order.upi_uri);
+      setMessage("UPI payment link copied. Paste it into your UPI app to pay.");
+    } catch {
+      setMessage("Could not copy the UPI link. Use Reopen UPI payment instead.");
     }
   }
 
@@ -192,6 +198,11 @@ export function WalletPanel() {
           <Button type="button" disabled={busy} onClick={() => void createOrder()}>
             {busy ? "Opening UPI…" : "Pay with UPI"}
           </Button>
+
+          <p className="muted">
+            On a phone with a UPI app installed, this opens the payment app.
+            On desktop, use the payment link below and paste it into your UPI app.
+          </p>
         </div>
       )}
 
@@ -211,9 +222,14 @@ export function WalletPanel() {
             </strong>
           </p>
 
-          <a className="button button-secondary" href={order.upi_uri}>
-            Reopen UPI payment
-          </a>
+          <div className="button-row">
+            <a className="button button-secondary" href={order.upi_uri}>
+              Reopen UPI payment
+            </a>
+            <Button type="button" onClick={() => void copyPaymentLink()}>
+              Copy UPI link
+            </Button>
+          </div>
 
           <Input
             id="utr"
