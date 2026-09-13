@@ -19,11 +19,19 @@ export async function POST(request: Request) {
   const { user } = await requireRole("user");
   const body = await request.json() as { packageId?: string };
   if (!body.packageId) return NextResponse.json({ error: "Select a coin package." }, { status: 400 });
+
   const admin = createAdminClient();
-  const { data: packageRow, error: packageError } = await admin.from("coin_packages").select("id, coins, price_rupees").eq("id", body.packageId).eq("is_active", true).maybeSingle();
+  const { data: packageRow, error: packageError } = await admin
+    .from("coin_packages")
+    .select("id, coins, price_rupees")
+    .eq("id", body.packageId)
+    .eq("is_active", true)
+    .maybeSingle();
   if (packageError || !packageRow) return NextResponse.json({ error: "That package is unavailable." }, { status: 400 });
+
   const upiId = process.env.ISHQIYA_UPI_ID?.trim();
   if (!upiId) return NextResponse.json({ error: "UPI payments are not configured on the server." }, { status: 503 });
+
   const amountRupees = Number(packageRow.price_rupees);
   if (!Number.isFinite(amountRupees) || amountRupees <= 0) return NextResponse.json({ error: "Coin package price is invalid." }, { status: 500 });
 
@@ -31,22 +39,21 @@ export async function POST(request: Request) {
   const transactionRef = orderId.replaceAll("-", "").slice(0, 35);
   const noteRef = transactionRef.slice(-12);
   const merchantCode = process.env.ISHQIYA_UPI_MCC?.trim();
-  const payeeName = process.env.ISHQIYA_UPI_PAYEE_NAME?.trim();
+  const payeeName = process.env.ISHQIYA_UPI_PAYEE_NAME?.trim() || "Ishqiya";
+
+  // Use the complete UPI deep-link parameter set for a merchant-style payment.
+  // pa = beneficiary VPA, pn = displayed/registered payee name,
+  // tr = unique merchant reference, am = locked order amount.
+  // MCC is included when the acquiring bank has supplied one.
   const upiParams = new URLSearchParams({
     pa: upiId,
+    pn: payeeName,
+    tr: transactionRef,
+    tn: `Ishqiya ${noteRef}`,
     am: amountRupees.toFixed(2),
     cu: "INR",
-    tn: `Ishqiya ${noteRef}`,
   });
-
-  // Personal VPA: keep the intent P2P-compatible and let the PSP resolve the
-  // registered beneficiary name. Merchant-only fields are added only when
-  // the server is explicitly configured with a merchant MCC and payee name.
-  if (merchantCode && payeeName) {
-    upiParams.set("pn", payeeName);
-    upiParams.set("mc", merchantCode);
-    upiParams.set("tr", transactionRef);
-  }
+  if (merchantCode) upiParams.set("mc", merchantCode);
 
   const upiUri = `upi://pay?${upiParams.toString()}`;
   const { data: order, error } = await admin.from("payment_orders").insert({
@@ -58,6 +65,7 @@ export async function POST(request: Request) {
     upi_uri: upiUri,
     payment_provider: "upi",
   }).select("id, coins, expected_amount_paise, upi_uri, status, expires_at").single();
+
   if (error) return NextResponse.json({ error: "Payment order could not be created." }, { status: 500 });
   return NextResponse.json({ order });
 }
