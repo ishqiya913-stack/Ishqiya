@@ -23,25 +23,23 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+  const { data: claimsData } = await supabase.auth.getClaims();
+  const userId = claimsData?.claims?.sub;
   const pathname = request.nextUrl.pathname;
 
-  if (pathname.startsWith("/user/") && !user) {
+  if (pathname.startsWith("/user/") && !userId) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 
-  if (pathname.startsWith("/host/") && !user) {
+  if (pathname.startsWith("/host/") && !userId) {
     return NextResponse.redirect(new URL("/auth/host/sign-in", request.url));
   }
 
-  if (user && (pathname.startsWith("/user/") || pathname.startsWith("/host/"))) {
+  if (userId && (pathname.startsWith("/user/") || pathname.startsWith("/host/"))) {
     const { data: profile, error } = await supabase
       .from("profiles")
       .select("role")
-      .eq("id", user.id)
+      .eq("id", userId)
       .maybeSingle();
 
     if (error || !profile) {
@@ -54,6 +52,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  response.headers.set("Cache-Control", "private, no-store");
   return response;
 }
 
