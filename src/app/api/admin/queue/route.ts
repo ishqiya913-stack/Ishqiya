@@ -1,16 +1,13 @@
 import { NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth";
+import { getAdminApiUser } from "@/lib/admin-api";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const allowedKinds = ["payments", "google-play", "reports", "violations", "host-verification", "users", "hosts", "earnings", "audit", "video"] as const;
 type QueueKind = (typeof allowedKinds)[number];
 
 export async function GET(request: Request) {
-  try {
-    await requireAdmin();
-  } catch {
-    return NextResponse.json({ error: "Admin authentication required." }, { status: 401 });
-  }
+  const adminUser = await getAdminApiUser();
+  if (!adminUser) return NextResponse.json({ error: "Admin authentication required." }, { status: 401, headers: { "Cache-Control": "private, no-store" } });
   const url = new URL(request.url);
   const kind = url.searchParams.get("kind") as QueueKind;
   const search = url.searchParams.get("search")?.trim() || "";
@@ -68,5 +65,5 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.json({ items, total: count || 0, page, pageSize });
+  return NextResponse.json({ items, total: count || 0, page, pageSize }, { headers: { "Cache-Control": "private, no-store" } });
 }
