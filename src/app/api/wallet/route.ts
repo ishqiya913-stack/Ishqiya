@@ -44,36 +44,19 @@ export async function POST(request: Request) {
   const orderId = crypto.randomUUID();
   const transactionRef = orderId.replaceAll("-", "").slice(0, 35);
   const noteRef = transactionRef.slice(-12);
-  const merchantCode = process.env.ISHQIYA_UPI_MCC?.trim();
-  const configuredPayeeName = process.env.ISHQIYA_UPI_PAYEE_NAME?.trim();
-  const payeeName = configuredPayeeName || "Ishqiya";
+  const payeeName = process.env.ISHQIYA_UPI_PAYEE_NAME?.trim() || "Ishqiya";
 
-  const merchantParams = new URLSearchParams({
+  // Keep the UPI intent deliberately simple for maximum bank/app compatibility.
+  // The order UUID remains the server-side payment reference; it does not need
+  // to be sent as a merchant transaction reference in the UPI URI itself.
+  const upiParams = new URLSearchParams({
     pa: upiId,
     pn: payeeName,
-    tr: transactionRef,
-    tn: `Ishqiya ${noteRef}`,
     am: amountRupees.toFixed(2),
     cu: "INR",
-  });
-  if (merchantCode) merchantParams.set("mc", merchantCode);
-
-  // Keep the fallback compatible with standard UPI intent requirements too.
-  // Google Pay and NPCI expect the payee name and unique transaction reference
-  // for a merchant-style payment request; omitting them can produce bank-side
-  // validation/limit errors even when a direct VPA payment succeeds.
-  const simpleParams = new URLSearchParams({
-    pa: upiId,
-    pn: payeeName,
-    tr: transactionRef,
     tn: `Ishqiya ${noteRef}`,
-    am: amountRupees.toFixed(2),
-    cu: "INR",
   });
-
-  const merchantUpiUri = `upi://pay?${merchantParams.toString()}`;
-  const simpleUpiUri = `upi://pay?${simpleParams.toString()}`;
-  const upiUri = merchantCode && configuredPayeeName ? merchantUpiUri : simpleUpiUri;
+  const upiUri = `upi://pay?${upiParams.toString()}`;
 
   const { data: order, error } = await admin.from("payment_orders").insert({
     id: orderId,
@@ -86,5 +69,5 @@ export async function POST(request: Request) {
   }).select("id, coins, expected_amount_paise, upi_uri, status, expires_at").single();
 
   if (error) return NextResponse.json({ error: "Payment order could not be created." }, { status: 500 });
-  return NextResponse.json({ order, simpleUpiUri, upiId, payeeName });
+  return NextResponse.json({ order, simpleUpiUri: upiUri, upiId, payeeName });
 }
