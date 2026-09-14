@@ -47,7 +47,7 @@ export async function requireAdmin() {
   const { data: profile } = await supabase.from("profiles").select("account_status").eq("id", userId).maybeSingle();
   if (profile?.account_status !== "active") redirect("/not-found");
 
-  return { id: userId } as Awaited<ReturnType<typeof getAuthenticatedUser>>;
+  return { id: userId } as NonNullable<Awaited<ReturnType<typeof getAuthenticatedUser>>>;
 }
 
 export async function requireAccount() {
