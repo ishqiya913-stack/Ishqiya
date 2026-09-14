@@ -3,8 +3,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function getAdminApiUser() {
   const supabase = await createClient();
-  const { data, error } = await supabase.auth.getClaims();
-  const userId = data?.claims?.sub;
+  const { data: { user }, error } = await supabase.auth.getUser();
+  const userId = user?.id;
   const adminUserId = process.env.ISHQIYA_ADMIN_USER_ID;
   if (error || !userId || !adminUserId || userId !== adminUserId) return null;
 
