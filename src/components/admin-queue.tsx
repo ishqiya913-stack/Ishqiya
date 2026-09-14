@@ -24,13 +24,13 @@ export function AdminQueue({initialKind}:{initialKind?:Kind}){
    <div className="admin-host-summary"><span>Role <strong>Host</strong></span><span>Account <strong>{text(item.account_status)}</strong></span></div>
    <div className="admin-host-box"><div className="admin-host-head"><div><strong>Host controls</strong><div className="muted">Manage account activity and whether this Host appears in Discover.</div></div><Badge value={item.approval_status}/></div>
      <div className="admin-action-grid">
-       <Button type="button" variant={item.is_active?"danger":"quiet"} disabled={working===String(item.id)||!hasHostProfile||!Boolean(item.is_active)} onClick={()=>void hostControl(item,"isActive",false)}>Deactivate Host</Button>
-       <Button type="button" variant={item.is_discoverable?"danger":"quiet"} disabled={working===String(item.id)||!hasHostProfile||!Boolean(item.is_discoverable)} onClick={()=>void hostControl(item,"isDiscoverable",false)}>Disable Discover</Button>
+       <Button type="button" variant={item.is_active?"danger":"quiet"} disabled={working===String(item.id)} onClick={()=>void hostControl(item,"isActive",false)}>Deactivate Host</Button>
+       <Button type="button" variant={item.is_discoverable?"danger":"quiet"} disabled={working===String(item.id)} onClick={()=>void hostControl(item,"isDiscoverable",false)}>Disable Discover</Button>
        <Button type="button" variant={blocked?"quiet":"danger"} disabled={working===String(item.id)} onClick={()=>void profile(item,blocked?"active":"blocked")}>{blocked?"Unblock Host":"Block Host"}</Button>
-       <Button type="button" variant={item.is_active?"quiet":undefined} disabled={working===String(item.id)||!hasHostProfile||Boolean(item.is_active)} onClick={()=>void hostControl(item,"isActive",true)}>Activate Host</Button>
-       <Button type="button" variant={item.is_discoverable?"quiet":undefined} disabled={working===String(item.id)||!hasHostProfile||Boolean(item.is_discoverable)} onClick={()=>void hostControl(item,"isDiscoverable",true)}>Enable Host in Discover</Button>
+       <Button type="button" variant={item.is_active?"quiet":undefined} disabled={working===String(item.id)} onClick={()=>void hostControl(item,"isActive",true)}>Activate Host</Button>
+       <Button type="button" variant={item.is_discoverable?"quiet":undefined} disabled={working===String(item.id)} onClick={()=>void hostControl(item,"isDiscoverable",true)}>Enable Host in Discover</Button>
      </div>
-     {!hasHostProfile&&<p className="admin-host-warning" role="alert">Host profile is missing. No Host control can be changed.</p>}
+     {!hasHostProfile&&<p className="admin-host-warning" role="alert">Host profile is missing. The server will reject Host control changes.</p>}
      <div className="admin-status-grid">
        <div className="admin-status-card"><span>Account</span><strong>{text(item.account_status)}</strong></div>
        <div className="admin-status-card"><span>Host Active</span><strong>{item.is_active?"Yes":"No"}</strong></div>
