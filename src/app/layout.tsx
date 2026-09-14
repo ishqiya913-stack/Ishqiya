@@ -14,3 +14,4 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 }
 
 // Keep the variant preview deployment synced with the latest visual system.
+// Preview trigger: 2026-09-15
