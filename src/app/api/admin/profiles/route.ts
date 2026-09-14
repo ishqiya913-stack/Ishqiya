@@ -1,13 +1,15 @@
 import { NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 async function getAdmin() {
-  try {
-    return await requireAdmin();
-  } catch {
-    return null;
-  }
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const adminUserId = process.env.ISHQIYA_ADMIN_USER_ID;
+  if (!adminUserId || !user || user.id !== adminUserId) return null;
+  const { data: profile } = await supabase.from("profiles").select("account_status").eq("id", user.id).maybeSingle();
+  if (profile?.account_status !== "active") return null;
+  return user;
 }
 
 export async function POST(request: Request) {
