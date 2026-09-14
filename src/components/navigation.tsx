@@ -1,8 +1,8 @@
 import Link from "next/link";
 
-export function Brand({ light = false }: { light?: boolean }) { return <Link className="brand" href="/"><span className="brand-mark">I</span><span style={light ? { color: "var(--cream)" } : undefined}>ISHQIYA</span></Link>; }
+export function Brand({ light = false }: { light?: boolean }) { return <Link className="brand" href="/"><span className="brand-mark">I</span><span style={light ? { color: "var(--cream)" } : undefined}>DILSE</span></Link>; }
 
-export function BackControl({ href = "/", label = "Back to Ishqiya" }: { href?: string; label?: string }) {
+export function BackControl({ href = "/", label = "Back to DilSe" }: { href?: string; label?: string }) {
   return <Link className="flow-back" href={href} aria-label={label}><span aria-hidden="true">←</span><span>{label}</span></Link>;
 }
 
