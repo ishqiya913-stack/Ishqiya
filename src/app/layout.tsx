@@ -1,6 +1,7 @@
 import React from "react";
 import type { Metadata } from "next";
 import "./globals.css";
+import "./brand-theme.css";
 
 export const metadata: Metadata = {
   title: "DilSe | Tere Ishq Ka Junoon",
