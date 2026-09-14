@@ -35,18 +35,19 @@ export async function requireRole(role: IshqiyaRole) {
 }
 
 export async function requireAdmin() {
-  const user = await getAuthenticatedUser();
+  const supabase = await createClient();
+  const { data: claimsData, error: claimsError } = await supabase.auth.getClaims();
+  const userId = claimsData?.claims?.sub;
   const adminUserId = process.env.ISHQIYA_ADMIN_USER_ID;
 
-  if (!adminUserId || !user || user.id !== adminUserId) {
+  if (claimsError || !adminUserId || !userId || userId !== adminUserId) {
     redirect("/not-found");
   }
 
-  const supabase = await createClient();
-  const { data: profile } = await supabase.from("profiles").select("account_status").eq("id", user.id).maybeSingle();
+  const { data: profile } = await supabase.from("profiles").select("account_status").eq("id", userId).maybeSingle();
   if (profile?.account_status !== "active") redirect("/not-found");
 
-  return user;
+  return { id: userId } as NonNullable<Awaited<ReturnType<typeof getAuthenticatedUser>>>;
 }
 
 export async function requireAccount() {
