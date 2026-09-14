@@ -46,12 +46,12 @@ export async function POST(request: Request) {
   const noteRef = transactionRef.slice(-12);
   const payeeName = process.env.ISHQIYA_UPI_PAYEE_NAME?.trim() || "Ishqiya";
 
-  // Keep the UPI intent deliberately simple for maximum bank/app compatibility.
-  // The order UUID remains the server-side payment reference; it does not need
-  // to be sent as a merchant transaction reference in the UPI URI itself.
+  // Google Pay's documented UPI intent requires a unique transaction reference.
+  // Keep the request otherwise minimal; the order UUID remains the server-side reference.
   const upiParams = new URLSearchParams({
     pa: upiId,
     pn: payeeName,
+    tr: transactionRef,
     am: amountRupees.toFixed(2),
     cu: "INR",
     tn: `Ishqiya ${noteRef}`,
