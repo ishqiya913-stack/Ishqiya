@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Ishqiya | Tere Ishq Ka Junoon",
+  title: "IshqMe",
   description: "A considered space for meaningful connection.",
 };
 
