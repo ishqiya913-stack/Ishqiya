@@ -4,17 +4,26 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { DEFAULT_SITE_CONTENT } from "@/lib/admin-content";
 
 export async function GET() {
-  await requireAdmin();
+  try {
+    await requireAdmin();
+  } catch {
+    return NextResponse.json({ error: "Admin authentication required." }, { status: 401 });
+  }
   const admin = createAdminClient();
   const { data, error } = await admin.from("site_settings").select("key,value,updated_at,updated_by").order("key");
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   const settings: Record<string, string> = { ...DEFAULT_SITE_CONTENT };
   for (const row of data || []) settings[row.key] = String(row.value ?? "");
-  return NextResponse.json({ settings });
+  return NextResponse.json({ settings }, { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function PUT(request: Request) {
-  const adminUser = await requireAdmin();
+  let adminUser;
+  try {
+    adminUser = await requireAdmin();
+  } catch {
+    return NextResponse.json({ error: "Admin authentication required." }, { status: 401 });
+  }
   const body = await request.json().catch(() => null) as { settings?: Record<string, unknown> } | null;
   if (!body?.settings || typeof body.settings !== "object") return NextResponse.json({ error: "Settings are required." }, { status: 400 });
 
