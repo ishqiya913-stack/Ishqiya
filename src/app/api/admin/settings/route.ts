@@ -1,29 +1,22 @@
 import { NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth";
+import { getAdminApiUser } from "@/lib/admin-api";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DEFAULT_SITE_CONTENT } from "@/lib/admin-content";
 
 export async function GET() {
-  try {
-    await requireAdmin();
-  } catch {
-    return NextResponse.json({ error: "Admin authentication required." }, { status: 401 });
-  }
+  const adminUser = await getAdminApiUser();
+  if (!adminUser) return NextResponse.json({ error: "Admin authentication required." }, { status: 401, headers: { "Cache-Control": "private, no-store" } });
   const admin = createAdminClient();
   const { data, error } = await admin.from("site_settings").select("key,value,updated_at,updated_by").order("key");
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   const settings: Record<string, string> = { ...DEFAULT_SITE_CONTENT };
   for (const row of data || []) settings[row.key] = String(row.value ?? "");
-  return NextResponse.json({ settings }, { headers: { "Cache-Control": "no-store" } });
+  return NextResponse.json({ settings }, { headers: { "Cache-Control": "private, no-store" } });
 }
 
 export async function PUT(request: Request) {
-  let adminUser;
-  try {
-    adminUser = await requireAdmin();
-  } catch {
-    return NextResponse.json({ error: "Admin authentication required." }, { status: 401 });
-  }
+  const adminUser = await getAdminApiUser();
+  if (!adminUser) return NextResponse.json({ error: "Admin authentication required." }, { status: 401, headers: { "Cache-Control": "private, no-store" } });
   const body = await request.json().catch(() => null) as { settings?: Record<string, unknown> } | null;
   if (!body?.settings || typeof body.settings !== "object") return NextResponse.json({ error: "Settings are required." }, { status: 400 });
 
@@ -37,5 +30,5 @@ export async function PUT(request: Request) {
   const { error } = await admin.from("site_settings").upsert(rows, { onConflict: "key" });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   await admin.from("audit_logs").insert({ admin_id: adminUser.id, action: "site_settings_updated", target_type: "site_settings", before_data: null, after_data: Object.fromEntries(rows.map((row) => [row.key, row.value])) });
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "private, no-store" } });
 }
