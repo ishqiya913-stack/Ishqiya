@@ -6,6 +6,9 @@ import { AdminQueue } from "@/components/admin-queue";
 import { AdminSettings } from "@/components/admin-settings";
 import { AdminTabs } from "@/components/admin-tabs";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function AdminPage() {
   await requireAdmin();
   const admin = createAdminClient();
