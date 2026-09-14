@@ -6,7 +6,11 @@ const allowedKinds = ["payments", "google-play", "reports", "violations", "host-
 type QueueKind = (typeof allowedKinds)[number];
 
 export async function GET(request: Request) {
-  await requireAdmin();
+  try {
+    await requireAdmin();
+  } catch {
+    return NextResponse.json({ error: "Admin authentication required." }, { status: 401 });
+  }
   const url = new URL(request.url);
   const kind = url.searchParams.get("kind") as QueueKind;
   const search = url.searchParams.get("search")?.trim() || "";
