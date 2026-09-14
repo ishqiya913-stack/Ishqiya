@@ -23,8 +23,10 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  const { data: claimsData } = await supabase.auth.getClaims();
-  const userId = claimsData?.claims?.sub;
+  // getUser() is intentionally used here so an expired access token can be
+  // refreshed and the refreshed session cookies are propagated to the browser.
+  const { data: { user } } = await supabase.auth.getUser();
+  const userId = user?.id;
   const pathname = request.nextUrl.pathname;
 
   if (pathname.startsWith("/user/") && !userId) {
