@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth";
+import { getAdminApiUser } from "@/lib/admin-api";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function POST(request: Request, { params }: { params: Promise<{ photoId: string }> }) {
-  const adminUser = await requireAdmin();
+  const adminUser = await getAdminApiUser();
+  if (!adminUser) return NextResponse.json({ error: "Admin authentication required." }, { status: 401, headers: { "Cache-Control": "private, no-store" } });
   const { photoId } = await params;
-  const body = await request.json() as { decision?: "approve" | "reject"; reason?: string };
-  if (body.decision !== "approve" && body.decision !== "reject") return NextResponse.json({ error: "A valid verification decision is required." }, { status: 400 });
+  const body = await request.json().catch(() => null) as { decision?: "approve" | "reject"; reason?: string } | null;
+  if (body?.decision !== "approve" && body?.decision !== "reject") return NextResponse.json({ error: "A valid verification decision is required." }, { status: 400 });
   const admin = createAdminClient();
   const { data: photo } = await admin.from("host_verification_photos").select("id,host_id,status").eq("id", photoId).maybeSingle();
   if (!photo || !["pending", "rejected"].includes(photo.status)) return NextResponse.json({ error: "This verification photo is not reviewable." }, { status: 409 });
@@ -23,5 +24,5 @@ export async function POST(request: Request, { params }: { params: Promise<{ pho
     await admin.from("notifications").insert({ user_id: photo.host_id, kind: "host_rejected", title: "Verification needs attention", body: body.reason || "One or more verification photos need review." });
   }
   await admin.from("audit_logs").insert({ admin_id: adminUser.id, action: `host_photo_${body.decision}`, target_type: "host_verification_photo", target_id: photoId, reason: body.reason || null });
-  return NextResponse.json({ status: nextStatus, hostApproved: allApproved });
+  return NextResponse.json({ status: nextStatus, hostApproved: allApproved }, { headers: { "Cache-Control": "private, no-store" } });
 }
