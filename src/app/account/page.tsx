@@ -8,21 +8,19 @@ export default async function AccountPage() {
   return (
     <main className="auth-page">
       <AppTopbar mode="user" />
-      <section className="auth-card" aria-labelledby="account-title">
+      <section className="form-card" aria-labelledby="account-title">
         <p className="eyebrow">Account & settings</p>
         <h1 id="account-title">Manage your account</h1>
-        <p className="muted">
-          Update your account preferences and manage your Ishqiya account data.
-        </p>
+        <p className="muted">Manage your account preferences and personal data.</p>
 
-        <div className="card" style={{ marginTop: 24 }}>
+        <div style={{ marginTop: 24, paddingTop: 20, borderTop: "1px solid var(--line)" }}>
           <h2 style={{ marginTop: 0 }}>Account deletion</h2>
           <p className="muted">
-            You can permanently delete your Ishqiya account and associated personal data.
-            Some information may be retained where required for legal, security, fraud-prevention,
-            or dispute-resolution purposes, as described in the Privacy Policy.
+            You can permanently delete your account and associated personal data. Some information
+            may be retained where required for legal, security, fraud-prevention, or dispute-resolution
+            purposes, as described in the Privacy Policy.
           </p>
-          <Link className="button" href="/account/delete">
+          <Link className="button button-danger" href="/account/delete">
             Delete my account
           </Link>
         </div>
